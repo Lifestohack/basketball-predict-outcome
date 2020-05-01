@@ -32,7 +32,11 @@ class Basketball(torch.utils.data.Dataset):
         path = self.samples[index]
         view1path = os.path.join(path[0], 'view1')
         view2path = os.path.join(path[0], 'view2')
-        label = path[1]
+        
+        if self.hit == path[1]:
+            label = 1
+        elif self.miss == path[1]:
+            label = 0
         
         cache1 = view1path.replace('data', 'cache')
         cache2 = view2path.replace('data', 'cache')
