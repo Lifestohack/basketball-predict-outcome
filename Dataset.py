@@ -9,10 +9,14 @@ import torchvision.transforms.functional as F
 import random
 from torch.utils.data import DataLoader
 import copy 
-
+from modules import LinearNet
 #   TODO
 #   do i need to shuffel samples as it will be shuffel by dataloader??
 
+
+# Classifier
+# Hit = 1
+# Miss = 2
 class Basketball(torch.utils.data.Dataset):
     def __init__(self, path, split='training', num_frame=100, img_transform=torchvision.transforms.ToTensor(), dataprocess=None):
         super().__init__()
@@ -31,7 +35,8 @@ class Basketball(torch.utils.data.Dataset):
         self.hit = 'hit'
         self.miss = 'miss'
         self.samples = self._find_videos()
-        
+        self.samples = [i for i in self.samples]
+        random.shuffle(self.samples)
         pass
 
     def __getitem__(self, index):
@@ -39,10 +44,10 @@ class Basketball(torch.utils.data.Dataset):
         view1path = os.path.join(path[0], 'view1')
         view2path = os.path.join(path[0], 'view2')
         
-        if self.hit == path[1]:
-            label = 1
-        elif self.miss == path[1]:
+        if self.miss == path[1]:
             label = 0
+        elif self.hit == path[1]:
+            label = 1
         
         cache1 = view1path.replace('data', 'cache')
         cache2 = view2path.replace('data', 'cache')
@@ -122,12 +127,19 @@ class Basketball(torch.utils.data.Dataset):
         misstestamples = misssamples[missnum:] 
         train = hittrainsamples + misstrainsamples
         test = hittestamples + misstestamples
+
         trainobj = copy.deepcopy(self)
         trainobj.samples = train
+        trainobj.samples = [i for i in trainobj.samples]
+        random.shuffle(trainobj.samples)
         trainobj.length = len(trainobj.samples)
+        
         testobj = copy.deepcopy(self)
         testobj.samples = test
+        testobj.samples = [i for i in testobj.samples]
+        random.shuffle(testobj.samples)
         testobj.length = len(testobj.samples)
+        
         return trainobj, testobj
         
 
@@ -151,4 +163,3 @@ class Basketball(torch.utils.data.Dataset):
         else:
             cache = True
         return cache
-
