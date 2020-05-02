@@ -3,12 +3,13 @@
 import numpy as np
 import torch.nn as nn
 from pathlib import Path
+import torch
 
 
 class LinearNet(nn.Module):
-    def __init__(self):
+    def __init__(self, input, output):
         super().__init__()
-        nn.Linear(48, 2)
+        self.linearlayer = torch.nn.Linear(input, output)
 
     def forward(self, input):
-        return input
+        return self.linearlayer(input)
