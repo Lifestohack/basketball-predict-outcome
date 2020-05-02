@@ -6,7 +6,12 @@ from PIL import Image
 import torchvision
 from Dataprocess import Preprocess
 import torchvision.transforms.functional as F
+import random
+from torch.utils.data import DataLoader
+import copy 
 
+#   TODO
+#   do i need to shuffel samples as it will be shuffel by dataloader??
 
 class Basketball(torch.utils.data.Dataset):
     def __init__(self, path, split='training', num_frame=100, img_transform=torchvision.transforms.ToTensor(), dataprocess=None):
@@ -14,7 +19,7 @@ class Basketball(torch.utils.data.Dataset):
 
         #split = training or validation
         #num_frame = 30, 50 or 100
-                
+                                                                                                                                                     
         p1 = os.path.join(path, split)
         self.path = path
 
@@ -26,8 +31,9 @@ class Basketball(torch.utils.data.Dataset):
         self.hit = 'hit'
         self.miss = 'miss'
         self.samples = self._find_videos()
-        pass
         
+        pass
+
     def __getitem__(self, index):
         path = self.samples[index]
         view1path = os.path.join(path[0], 'view1')
@@ -42,12 +48,14 @@ class Basketball(torch.utils.data.Dataset):
         cache2 = view2path.replace('data', 'cache')
 
         if self.iscacheavailable(cache1, cache2):
-            return self.get_view(cache1, cache=True), self.get_view(cache2, cache=True), label
+            view = torch.stack([self.get_view(cache1, cache=True), self.get_view(cache2, cache=True)])
+            return view, label
         else:
             view1 = self.get_view(view1path)
             view2 = self.get_view(view2path)
             self.cache(view1, view2, cache1, cache2)
-            return view1, view2, label
+            view = torch.stack([view1, view2])
+            return view, label
     
     def cache(self, view1, view2, cache1, cache2):
         for index, _ in enumerate(view1): 
@@ -99,7 +107,29 @@ class Basketball(torch.utils.data.Dataset):
         elif self.split == 'validation':
             validationsamples = self._getpath()
             samples = validationsamples
+        
+        
         return samples
+
+    def train_test_split(self, train_size = 0.8):
+        hitsamples = [x for x in self.samples if x[1] == 'hit']
+        hitnum = int(train_size * len(hitsamples))
+        hittrainsamples = hitsamples[:hitnum] 
+        hittestamples = hitsamples[hitnum:] 
+        misssamples = [x for x in self.samples if x[1] == 'miss']
+        missnum = int(train_size * len(misssamples))
+        misstrainsamples = misssamples[:missnum] 
+        misstestamples = misssamples[missnum:] 
+        train = hittrainsamples + misstrainsamples
+        test = hittestamples + misstestamples
+        trainobj = copy.deepcopy(self)
+        trainobj.samples = train
+        trainobj.length = len(trainobj.samples)
+        testobj = copy.deepcopy(self)
+        testobj.samples = test
+        testobj.length = len(testobj.samples)
+        return trainobj, testobj
+        
 
     def _getpath(self, label=''):
         path = os.path.join(self.path, self.split, label)
@@ -121,3 +151,4 @@ class Basketball(torch.utils.data.Dataset):
         else:
             cache = True
         return cache
+
