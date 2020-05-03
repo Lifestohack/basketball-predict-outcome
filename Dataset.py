@@ -9,7 +9,7 @@ import torchvision.transforms.functional as F
 import random
 from torch.utils.data import DataLoader
 import copy 
-from modules import LinearNet
+from modules import FFNN
 #   TODO
 #   do i need to shuffel samples as it will be shuffel by dataloader??
 

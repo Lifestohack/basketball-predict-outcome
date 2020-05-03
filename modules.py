@@ -6,7 +6,7 @@ from pathlib import Path
 import torch
 
 
-class LinearNet(nn.Module):
+class FFNN(nn.Module):
     def __init__(self, input, output):
         super().__init__()
         self.linearlayer = torch.nn.Linear(input, output)
