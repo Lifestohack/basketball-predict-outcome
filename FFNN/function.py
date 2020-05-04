@@ -24,7 +24,8 @@ class FFNNTraintest():
             #inputs is taken only as view1
             #change is later for both views
             inputs = torch.cat((inputs[0][0], inputs[0][1]), dim=3)
-            inputs = inputs.view(1,-1).to(self.device)
+            inputs = inputs.transpose(2, 3) 
+            inputs = inputs.reshape(1,-1).to(self.device)
             targets = targets.to(self.device)
             outputs = self.network(inputs)
             self.network.zero_grad()
@@ -43,7 +44,8 @@ class FFNNTraintest():
         with torch.no_grad():
             for inputs, targets in testset:
                 inputs = torch.cat((inputs[0][0], inputs[0][1]), dim=3)
-                inputs = inputs.view(1,-1).to(self.device)
+                inputs = inputs.transpose(2, 3)
+                inputs = inputs.reshape(1,-1).to(self.device)
                 target = targets.to(self.device)
                 outputs = self.network(inputs)
                 _, predicted = torch.max(outputs.data, 1)

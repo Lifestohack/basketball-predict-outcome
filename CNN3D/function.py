@@ -47,6 +47,7 @@ class CNN3DTraintest():
 
     def resizeInputforconv3D(self, inputs):
         inputs = torch.cat((inputs[0][0], inputs[0][1]), dim=3)
+        #inputs = inputs.transpose(2, 3) # transpose decreased the accuracy from 96.4 to 89
         frame = inputs.shape[0]
         channel = inputs.shape[1]
         height = inputs.shape[2]
