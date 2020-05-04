@@ -9,7 +9,7 @@ import torchvision.transforms.functional as F
 import random
 from torch.utils.data import DataLoader
 import copy 
-from modules import FFNN
+
 #   TODO
 #   do i need to shuffel samples as it will be shuffel by dataloader??
 
@@ -20,13 +20,9 @@ from modules import FFNN
 class Basketball(torch.utils.data.Dataset):
     def __init__(self, path, split='training', num_frame=100, img_transform=torchvision.transforms.ToTensor(), dataprocess=None):
         super().__init__()
-
         #split = training or validation
-        #num_frame = 30, 50 or 100
-                                                                                                                                                     
-        p1 = os.path.join(path, split)
+        #num_frame = 30, 50 or 100                                                                                                                             
         self.path = path
-
         self.split = split
         self.num_frame = num_frame
         self.img_transform = img_transform
