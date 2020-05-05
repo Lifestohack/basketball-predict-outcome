@@ -8,7 +8,9 @@ from PIL import Image
 import CNN3D.module
 import CNN3D.function 
 import FFNN.module 
-import FFNN.function 
+import FFNN.function
+import CNN2DLSTM.module
+import CNN2DLSTM.function
 
 img_transformation = torchvision.transforms.Compose([
     torchvision.transforms.Resize((64,48)),
@@ -38,12 +40,18 @@ def run(module='FFNN', testeverytrain=True, EPOCHS=1):
         optimizer = torch.optim.SGD(network.parameters(), lr=0.001, momentum=0.4, nesterov=True)
         obj = FFNN.function.FFNNTraintest(device, network, loss, optimizer)
     elif module=='CNN3D':
-        network = CNN3D.module.CNN3D(width=2*48, height=48, in_channels=3, out_features=2, drop_p=0.2, fc_hidden1=256, fc_hidden2=128, frames=100) # the shape of input will be Batch x Channel x Depth x Height x Width
+        network = CNN3D.module.CNN3D(width=2*48, height=48, in_channels=3, out_features=2, drop_p=0.2, fc1out=256, fc2out=128, frames=100) # the shape of input will be Batch x Channel x Depth x Height x Width
         optimizer = torch.optim.SGD(network.parameters(), lr=0.001, momentum=0.4, nesterov=True)
         obj = CNN3D.function.CNN3DTraintest(device, network, loss, optimizer)
+    elif module=='CNN2DLSTM':
+        encoder2Dnet = CNN2DLSTM.module.CNN2D(width=2*48, height=48, drop_p=0.2, fc1out=256, fc2out=128, frames=100) # Batch x Depth x Channel x Height x Width
+        decoderltsm = CNN2DLSTM.module.LTSM()
+        cnn_params = list(encoder2Dnet.parameters()) + list(decoderltsm.parameters())
+        optimizer = torch.optim.SGD(cnn_params, lr=0.001, momentum=0.4, nesterov=True)
+        obj = CNN2DLSTM.function.CNN2DLSTMTraintest(device, encoder2Dnet, decoderltsm, loss, optimizer)
     else:
         ValueError()
-    network = network.to(device)
+
     print("------------------------------------------------------")
     print("|    EPOCHS  |   Total   |   Loss    |   Accuracy    |")
     print("------------------------------------------------------")
