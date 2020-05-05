@@ -15,6 +15,7 @@ class FFNNTraintest():
 
         self.loss = loss if loss is not None else torch.nn.CrossEntropyLoss().to(device)
         self.optimizer = optimizer if optimizer is not None else torch.optim.SGD(network.parameters(), lr=0.001, momentum=0.4, nesterov=True)
+        network = network.to(device)
 
     def train(self, trainset):
         self.network.train()
