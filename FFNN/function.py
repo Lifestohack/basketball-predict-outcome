@@ -22,10 +22,9 @@ class FFNNTraintest():
         running_loss = 0.0
         total = 0
         for inputs, targets in trainset:
-            #inputs is taken only as view1
-            #change is later for both views
-            inputs = torch.cat((inputs[0][0], inputs[0][1]), dim=3)
-            inputs = inputs.transpose(2, 3) 
+            # use this if different views needs to not combined
+            #inputs = torch.cat((inputs[0][0], inputs[0][1]), dim=3)
+            #inputs = inputs.transpose(2, 3) 
             inputs = inputs.reshape(1,-1).to(self.device)
             targets = targets.to(self.device)
             outputs = self.network(inputs)
@@ -44,8 +43,8 @@ class FFNNTraintest():
         total = 0
         with torch.no_grad():
             for inputs, targets in testset:
-                inputs = torch.cat((inputs[0][0], inputs[0][1]), dim=3)
-                inputs = inputs.transpose(2, 3)
+                #inputs = torch.cat((inputs[0][0], inputs[0][1]), dim=3)
+                #inputs = inputs.transpose(2, 3)
                 inputs = inputs.reshape(1,-1).to(self.device)
                 target = targets.to(self.device)
                 outputs = self.network(inputs)

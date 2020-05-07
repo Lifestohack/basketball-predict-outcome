@@ -19,8 +19,8 @@ class CNN2DLSTMTraintest():
 
         cnn_params = list(encoder2Dnet.parameters()) + list(decoderltsm.parameters())
         self.optimizer = optimizer if optimizer is not None else torch.optim.SGD(cnn_params, lr=0.001, momentum=0.4, nesterov=True)
-        encoder2Dnet = encoder2Dnet.to(device)
-        decoderltsm = decoderltsm.to(device)
+        self.encoder2Dnet = self.encoder2Dnet.to(device)
+        self.decoderltsm = self.decoderltsm.to(device)
 
     def train(self, trainset):
         self.encoder2Dnet.train()
@@ -63,5 +63,5 @@ class CNN2DLSTMTraintest():
         return total, correct
 
     def resizeInputforconv2DLSTM(self, inputs):
-        inputs = torch.cat((inputs[0][0], inputs[0][1]), dim=3).unsqueeze(dim=0)
+        #inputs = torch.cat((inputs[0][0], inputs[0][1]), dim=3).unsqueeze(dim=0)
         return inputs

@@ -21,8 +21,8 @@ class CNN3DTraintest():
             inputs = self.resizeInputforconv3D(inputs)
             inputs = inputs.to(self.device)
             targets = targets.to(self.device)
-            outputs = self.network(inputs)
             self.network.zero_grad()
+            outputs = self.network(inputs)
             l = self.loss(outputs, targets)
             l.backward()
             self.optimizer.step()
@@ -47,11 +47,11 @@ class CNN3DTraintest():
         return total, correct
 
     def resizeInputforconv3D(self, inputs):
-        inputs = torch.cat((inputs[0][0], inputs[0][1]), dim=3)
+        #inputs = torch.cat((inputs[0][0], inputs[0][1]), dim=3)
         #inputs = inputs.transpose(2, 3) # transpose decreased the accuracy from 96.4 to 89
-        frame = inputs.shape[0]
-        channel = inputs.shape[1]
-        height = inputs.shape[2]
-        width = inputs.shape[3]
+        frame = inputs.shape[1]
+        channel = inputs.shape[2]
+        height = inputs.shape[3]
+        width = inputs.shape[4]
         inputs = inputs.view(-1, channel, frame, height, width)
         return inputs

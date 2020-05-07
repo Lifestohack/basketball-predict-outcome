@@ -6,6 +6,7 @@ from PIL import Image
 import torchvision
 from Dataprocess import Preprocess
 import torchvision.transforms.functional as F
+from torchvision.utils import save_image
 import random
 from torch.utils.data import DataLoader
 import copy 
@@ -18,7 +19,7 @@ import copy
 # Hit = 1
 # Miss = 2
 class Basketball(torch.utils.data.Dataset):
-    def __init__(self, path, split='training', num_frame=100, img_transform=torchvision.transforms.ToTensor(), dataprocess=None):
+    def __init__(self, path, split='training', num_frame=100, img_transform=torchvision.transforms.ToTensor(), dataprocess=None, cacheifavailable=True, savecache=False, combineview=False, cachepath='cache'):
         super().__init__()
         #split = training or validation
         #num_frame = 30, 50 or 100                                                                                                                             
@@ -27,6 +28,10 @@ class Basketball(torch.utils.data.Dataset):
         self.num_frame = num_frame
         self.img_transform = img_transform
         self.dataprocess = dataprocess
+        self.cacheifavailable = cacheifavailable
+        self.savecache = savecache
+        self.combineview = combineview
+        self.cachepath = cachepath
         self.length = 0
         self.hit = 'hit'
         self.miss = 'miss'
@@ -37,62 +42,76 @@ class Basketball(torch.utils.data.Dataset):
 
     def __getitem__(self, index):
         path = self.samples[index]
-        view1path = os.path.join(path[0], 'view1')
-        view2path = os.path.join(path[0], 'view2')
-        
         if self.miss == path[1]:
             label = 0
         elif self.hit == path[1]:
             label = 1
-        
-        cache1 = view1path.replace('data', 'cache')
-        cache2 = view2path.replace('data', 'cache')
-
-        if self.iscacheavailable(cache1, cache2):
-            view = torch.stack([self.get_view(cache1, cache=True), self.get_view(cache2, cache=True)])
+        cache = path[0].replace(self.path, self.cachepath)
+        if self.cacheifavailable and self.iscacheavailable(cache):
+            view = self.get_view(cache, cache=True)
             return view, label
+
         else:
+            view1path = os.path.join(path[0], 'view1')
+            view2path = os.path.join(path[0], 'view2')
             view1 = self.get_view(view1path)
             view2 = self.get_view(view2path)
-            self.cache(view1, view2, cache1, cache2)
-            view = torch.stack([view1, view2])
+            view = torch.cat((view1, view2), dim=3)
+            view = view.transpose(2, 3) 
+            if  self.savecache:
+                if self.combineview:
+                    viewpath =  path[0].replace(self.path, self.cachepath)
+                    self.savecombinedcache(view, viewpath)
+                else:
+                    view1path = view1path.replace(self.path, self.cachepath)
+                    view2path = view2path.replace(self.path, self.cachepath)
+                    self.saveseperateview(view1, view2, view1path, view2path)
             return view, label
-    
-    def cache(self, view1, view2, cache1, cache2):
+
+    def savecombinedcache(self, view, path):
+        if not os.path.isdir(path):
+            os.makedirs(path)
+        for index, _ in enumerate(view): 
+            #imgpil1 = F.to_pil_image(view[index])
+            savepath = os.path.join(path, str(index) + '.jpg')
+            torchvision.utils.save_image(view[index], savepath)
+            
+
+
+    def saveseperateview(self, view1, view2, cache1, cache2):
         for index, _ in enumerate(view1): 
             imgpil1 = F.to_pil_image(view1[index])
             imgpil2 = F.to_pil_image(view2[index])
             if not os.path.isdir(cache1):
                 os.makedirs(cache1)
-            torch.save(imgpil1, os.path.join(cache1, str(index)))
-            
+            torchvision.utils.save_image(view1[index], os.path.join(cache1, str(index) + '.jpg'))
             if not os.path.isdir(cache2):
                 os.makedirs(cache2)
-            torch.save(imgpil2, os.path.join(cache2, str(index)))
+            torchvision.utils.save_image(view2[index], os.path.join(cache2, str(index) + '.jpg'))
 
     def get_view(self, path, cache=False):
         frames_data = []
-        subdir = os.listdir(path)
-        if cache:
-            frames = sorted(subdir, key=int)
-        else:
-            frames = sorted(subdir)
-
+        frames = os.listdir(path)
         for idx, frame in enumerate(frames):
+            img = Image.open(os.path.join(path, frame))
             if cache:
-                imgloaded = torch.load(os.path.join(path, frame))
+                #img = self.img_transform(img)
+                #imgloaded = torch.load(os.path.join(path, frame))
                 imgToTensor = torchvision.transforms.ToTensor()
-                img = imgToTensor(imgloaded)
+                img = imgToTensor(img)
             else:
-                img = Image.open(os.path.join(path, frame))
                 if self.img_transform is not None:
                     img = self.img_transform(img)
+                    #croparea = (18, 40, 260, 190)
+                    #img = img.crop(croparea)
+                    #img = torchvision.transforms.ToTensor()(img)
             frames_data.append(img)
             if idx == self.num_frame - 1:
                 break
         video = torch.stack(frames_data)
-        if self.dataprocess is not None:
+        if not cache and self.dataprocess is not None: #test if not cache
             video = self.dataprocess(video)
+            pass
         return video
 
     def __len__(self):
@@ -159,3 +178,11 @@ class Basketball(torch.utils.data.Dataset):
         else:
             cache = True
         return cache
+
+    def iscacheavailable(self, cache):
+        cacheavailable = False
+        if not os.path.isdir(cache):
+            cacheavailable = False
+        else:
+            cacheavailable = True
+        return cacheavailable
