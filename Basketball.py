@@ -11,18 +11,22 @@ import FFNN.module
 import FFNN.function
 import CNN2DLSTM.module
 import CNN2DLSTM.function
+import OPTICALCONV3D.module
+import OPTICALCONV3D.function
 
 img_transformation = torchvision.transforms.Compose([
-    torchvision.transforms.Resize((64,48)),
+    torchvision.transforms.Resize((48,48)),
     torchvision.transforms.CenterCrop((48,48)),
     torchvision.transforms.ToTensor()
 ])
 
 dataprocess = Preprocess().background_subtractor
 
+
 path = "data"
-dataset = Basketball(path, split='training', num_frame = 100, img_transform = img_transformation, dataprocess=dataprocess)
-trainset, testset = dataset.train_test_split()
+dataset = Basketball(path, split='training', num_frame = 100, img_transform = img_transformation, 
+                     dataprocess=dataprocess, cacheifavailable=True, savecache=True, combineview=True, cachepath='cache')
+trainset, testset = dataset.train_test_split(train_size=0.8)
 
 trainset = DataLoader(trainset, shuffle=True)
 testset = DataLoader(testset, shuffle=True)
@@ -35,7 +39,7 @@ def run(module='FFNN', testeverytrain=True, EPOCHS=1):
     loss = torch.nn.CrossEntropyLoss().to(device)
     if module=='FFNN':
         out_features = 2 # only 2 classifier hit or miss
-        in_features = out_features*dataset[0][0][0].numel()
+        in_features = dataset[0][0].numel()
         network = FFNN.module.FFNN(in_features=in_features, out_features=out_features)
         optimizer = torch.optim.SGD(network.parameters(), lr=0.001, momentum=0.4, nesterov=True)
         obj = FFNN.function.FFNNTraintest(device, network, loss, optimizer)
@@ -48,7 +52,15 @@ def run(module='FFNN', testeverytrain=True, EPOCHS=1):
         decoderltsm = CNN2DLSTM.module.LTSM()
         cnn_params = list(encoder2Dnet.parameters()) + list(decoderltsm.parameters())
         optimizer = torch.optim.SGD(cnn_params, lr=0.001, momentum=0.4, nesterov=True)
+        #optimizer = torch.optim.Adam(cnn_params, lr=0.0001)
         obj = CNN2DLSTM.function.CNN2DLSTMTraintest(device, encoder2Dnet, decoderltsm, loss, optimizer)
+    elif module=='OPTICALCONV3D':
+        cnn3d = OPTICALCONV3D.module.CNN3D(width=2*48, height=48, in_channels=3, out_features=2, drop_p=0.2, fc1out=256, fc2out=128, frames=100) # the shape of input will be Batch x Channel x Depth x Height x Width
+        opticalcnn3d = OPTICALCONV3D.module.CNN3D(width=2*48, height=48, in_channels=3, out_features=2, drop_p=0.2, fc1out=256, fc2out=128, frames=100) # the shape of input will be Batch x Channel x Depth x Height x Width
+        twostream = OPTICALCONV3D.module.TwostreamConv3d()
+        cnn_params = list(cnn3d.parameters()) + list(opticalcnn3d.parameters()) + list(twostream.parameters())
+        optimizer = torch.optim.SGD(cnn_params, lr=0.001, momentum=0.4, nesterov=True)
+        obj = OPTICALCONV3D.function.OPTICALCONV3DTraintest(device, cnn3d, opticalcnn3d, twostream, loss, optimizer)
     else:
         ValueError()
 
@@ -65,3 +77,7 @@ def run(module='FFNN', testeverytrain=True, EPOCHS=1):
             print("|      {}     |    {}     |           | ({}) {:.1f} %   |".format(i, total, correct, 100 * correct/total))
             print("------------------------------------------------------")
         i += 1
+#run('FFNN', testeverytrain=True, EPOCHS=10)
+#run('CNN3D', testeverytrain=True, EPOCHS=10)
+#run('CNN2DLSTM', testeverytrain=True, EPOCHS=10)
+run('OPTICALCONV3D', testeverytrain=True, EPOCHS=10)
