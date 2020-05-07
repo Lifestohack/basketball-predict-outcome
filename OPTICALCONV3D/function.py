@@ -30,56 +30,57 @@ class OPTICALCONV3DTraintest():
         self.twostream.train()
         running_loss = 0.0
         total = 0
-        outputslist = []
-        #conv3d
+        
         for inputs, targets in trainset:
+            #conv3d
             inputs = self.resizeInputforconv3D(inputs)
             inputs = inputs.to(self.device)
             targets = targets.to(self.device)
             self.cnn3d.zero_grad()
-            outputs = self.cnn3d(inputs)
-            outputslist.append(outputs)
-
-        #opticalconv3d
-        for inputs, targets in trainset:
-            inputs = self.resizeInputforconv3D(inputs)
-            inputs = inputs.to(self.device)
-            targets = targets.to(self.device)
+            cnn3doutputs = self.cnn3d(inputs)
+           
+            #opticalconv3d
             self.opticalcnn3d.zero_grad()
-            outputs = self.opticalcnn3d(inputs)
-            outputslist.append(outputs)
+            opticalflowoutputs = self.opticalcnn3d(inputs)
 
-        #outputs = torch.stack(outputslist, dim=0)
-        print(outputslist[0].shape)
-        print(outputslist[1].shape)
-        self.twostream.zero_grad()
-        outputs = self.twostream(outputs)
-        l = self.loss(outputs, targets)
-        l.backward()
-        self.optimizer.step()
-        running_loss += l.item()
-        total += targets.size(0)
+            #twostream
+            self.twostream.zero_grad()
+            outputs = self.twostream(cnn3doutputs, opticalflowoutputs)
+            l = self.loss(outputs, targets)
+            l.backward()
+            self.optimizer.step()
+            running_loss += l.item()
+            total += targets.size(0)
         return total, running_loss
 
 
     def test(self, testset):
-        self.network.eval()
+        self.cnn3d.eval()
+        self.opticalcnn3d.eval()
+        self.twostream.eval()
         correct = 0
         total = 0
         with torch.no_grad():
+            #conv3d
             for inputs, targets in testset:
+                #conv3d
                 inputs = self.resizeInputforconv3D(inputs)
                 inputs = inputs.to(self.device)
-                target = targets.to(self.device)
-                outputs = self.network(inputs)
+                targets = targets.to(self.device)
+                self.cnn3d.zero_grad()
+                cnn3doutputs = self.cnn3d(inputs)
+
+                #opticalconv3d
+                opticalflowoutputs = self.opticalcnn3d(inputs)
+
+                #twostream
+                outputs = self.twostream(cnn3doutputs, opticalflowoutputs)
                 _, predicted = torch.max(outputs.data, 1)
-                total += target.size(0)
-                correct += (predicted == target).sum().item()
+                total += targets.size(0)
+                correct += (predicted == targets).sum().item()
         return total, correct
 
     def resizeInputforconv3D(self, inputs):
-        #inputs = torch.cat((inputs[0][0], inputs[0][1]), dim=3)
-        #inputs = inputs.transpose(2, 3) # transpose decreased the accuracy from 96.4 to 89
         frame = inputs.shape[1]
         channel = inputs.shape[2]
         height = inputs.shape[3]

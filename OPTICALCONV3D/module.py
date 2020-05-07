@@ -1,24 +1,37 @@
 #!/usr/bin/env python3
 
+import torch
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
 
 class TwostreamConv3d(nn.Module):
-    def __init__(self, width=48, height=48, frames=100, in_channels=3, out_features=2, drop_p=0.2, fc1out=256, fc2out=128):
+    def __init__(self, in_features=3, out_features=2, bias=True, drop_p=0.2, fcout=[256, 128]):
         super().__init__()
-        #Batch x Channel x Depth x Height x Width
-        self.width = width
-        self.height = height
-        self.frames = frames
-        self.in_channels = in_channels
+        self.in_features = 154880 # needs to be calculated automatically
         self.out_features = out_features
+        self.bias = bias
         self.drop_p = drop_p
-        self.fc1out = fc1out 
-        self.fc2out = fc2out
+        self.fcout = fcout 
+        self.fc1 = nn.Linear(in_features, self.fcout[0], bias)
+        self.fc2 = nn.Linear(self.fcout[0], self.fcout[1], bias)
+        self.fc3 = nn.Linear(self.fcout[1], self.out_features, bias)
+        self.relu = nn.ReLU(inplace=True)
+        self.drop = nn.Dropout(self.drop_p)
+
+
         
-    def forward(self, input):
-        return input
+    def forward(self, cnn3d, optical):
+        x = cnn3d.view(1, -1)
+        y = optical.view(1, -1)
+        inputs = torch.cat([x,y]).view(1,-1)
+
+        outputs = F.relu(self.fc1(inputs))
+        outputs = F.relu(self.fc2(outputs))
+        outputs = self.drop(outputs)
+        outputs = self.fc3(outputs)
+
+        return outputs
 
 class CNN3D(nn.Module):
     def __init__(self, width=2*48, height=48, frames=100, in_channels=3, out_features=2, drop_p=0.2, fc1out=256, fc2out=128):
@@ -34,7 +47,7 @@ class CNN3D(nn.Module):
         self.fc2out = fc2out
 
         self.ch1, self.ch2, self.ch3 = 32, 64, 128
-        self.k1, self.k2, self.k3 = (5, 5, 5), (3, 3, 3), (1, 1, 1)      # 3d kernel size
+        self.k1, self.k2, self.k3 = (5, 5, 5), (3, 3, 3), (2, 2, 2)      # 3d kernel size
         self.s1, self.s2, self.s3 = (2, 2, 2), (2, 2, 2), (2, 2, 2)      # 3d strides
         self.pd1, self.pd2, self.pd3 = (0, 0, 0), (0, 0, 0), (0, 0, 0)   # 3d padding
 
@@ -53,12 +66,6 @@ class CNN3D(nn.Module):
         self.bn3 = nn.BatchNorm3d(self.ch3)
         self.relu = nn.ReLU(inplace=True)
         self.drop = nn.Dropout3d(self.drop_p)
-
-
-    def forward(self, input):
-        return input
-
-
 
     def forward(self, input):
         # Conv 1
