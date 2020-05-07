@@ -36,7 +36,7 @@ class CNN3D(nn.Module):
         self.relu = nn.ReLU(inplace=True)
         self.drop = nn.Dropout3d(self.drop_p)
         #self.pool = nn.MaxPool3d(2)
-        self.fc1 = nn.Linear(inputlinearvariables, self.fc_hidden1)  # fully connected hidden layer
+        self.fc1 = nn.Linear(inputlinearvariables, self.fc1out)  # fully connected hidden layer
         self.fc2 = nn.Linear(self.fc1out, self.fc2out)
         self.fc3 = nn.Linear(self.fc2out, self.out_features)  # fully connected layer, output = multi-classes
 
