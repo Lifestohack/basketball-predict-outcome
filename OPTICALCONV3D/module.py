@@ -13,7 +13,7 @@ class TwostreamConv3d(nn.Module):
         self.bias = bias
         self.drop_p = drop_p
         self.fcout = fcout 
-        self.fc1 = nn.Linear(in_features, self.fcout[0], bias)
+        self.fc1 = nn.Linear(self.in_features, self.fcout[0], bias)
         self.fc2 = nn.Linear(self.fcout[0], self.fcout[1], bias)
         self.fc3 = nn.Linear(self.fcout[1], self.out_features, bias)
         self.relu = nn.ReLU(inplace=True)
