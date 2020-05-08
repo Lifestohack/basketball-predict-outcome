@@ -4,3 +4,4 @@ README.txt
 __pycache__
 /data
 /cache
+/opticalflow
