@@ -19,53 +19,38 @@ import copy
 # Hit = 1
 # Miss = 2
 class Basketball(torch.utils.data.Dataset):
-    def __init__(self, path, split='training', num_frame=100, img_transform=torchvision.transforms.ToTensor(), dataprocess=None, cacheifavailable=True, savecache=False, combineview=False, cachepath='cache'):
+    def __init__(self, path, split='training', num_frame=100):
         super().__init__()
         #split = training or validation
         #num_frame = 30, 50 or 100                                                                                                                             
         self.path = path
         self.split = split
         self.num_frame = num_frame
-        self.img_transform = img_transform
-        self.dataprocess = dataprocess
-        self.cacheifavailable = cacheifavailable
-        self.savecache = savecache
-        self.combineview = combineview
-        self.cachepath = cachepath
         self.length = 0
         self.hit = 'hit'
         self.miss = 'miss'
         self.samples = self._find_videos()
-        self.samples = [i for i in self.samples]
         random.shuffle(self.samples)
         pass
 
     def __getitem__(self, index):
         path = self.samples[index]
+        if path is None:
+            print('No testdata on the folder ', index)
         if self.miss == path[1]:
             label = 0
         elif self.hit == path[1]:
             label = 1
-        cache = path[0].replace(self.path, self.cachepath)
-        if self.cacheifavailable and self.iscacheavailable(cache):
-            view = self.get_view(cache, cache=True)
-            return view, label
-
-        else:
-            view1path = os.path.join(path[0], 'view1')
-            view2path = os.path.join(path[0], 'view2')
+        views = os.listdir(path[0])
+        if len(views) == 2:
+            view1path = os.path.join(path[0], views[0])
+            view2path = os.path.join(path[0], views[0])
             view1 = self.get_view(view1path)
             view2 = self.get_view(view2path)
-            view = torch.cat((view1, view2), dim=3)
-            view = view.transpose(2, 3) 
-            if  self.savecache:
-                if self.combineview:
-                    viewpath =  path[0].replace(self.path, self.cachepath)
-                    self.savecombinedcache(view, viewpath)
-                else:
-                    view1path = view1path.replace(self.path, self.cachepath)
-                    view2path = view2path.replace(self.path, self.cachepath)
-                    self.saveseperateview(view1, view2, view1path, view2path)
+            view = torch.stack([view1, view2])
+            return view, label
+        else:
+            view = self.get_view(path[0])
             return view, label
 
     def savecombinedcache(self, view, path):
@@ -75,8 +60,6 @@ class Basketball(torch.utils.data.Dataset):
             #imgpil1 = F.to_pil_image(view[index])
             savepath = os.path.join(path, str(index) + '.jpg')
             torchvision.utils.save_image(view[index], savepath)
-            
-
 
     def saveseperateview(self, view1, view2, cache1, cache2):
         for index, _ in enumerate(view1): 
@@ -89,29 +72,17 @@ class Basketball(torch.utils.data.Dataset):
                 os.makedirs(cache2)
             torchvision.utils.save_image(view2[index], os.path.join(cache2, str(index) + '.jpg'))
 
-    def get_view(self, path, cache=False):
+    def get_view(self, path):
         frames_data = []
         frames = os.listdir(path)
         for idx, frame in enumerate(frames):
-            img = Image.open(os.path.join(path, frame))
-            if cache:
-                #img = self.img_transform(img)
-                #imgloaded = torch.load(os.path.join(path, frame))
-                imgToTensor = torchvision.transforms.ToTensor()
-                img = imgToTensor(img)
-            else:
-                if self.img_transform is not None:
-                    img = self.img_transform(img)
-                    #croparea = (18, 40, 260, 190)
-                    #img = img.crop(croparea)
-                    #img = torchvision.transforms.ToTensor()(img)
+            img = Image.open(os.path.join(path, frame))     # may be in future will save the processed images as tensor and not as image
+            if not isinstance(img, torch.Tensor):
+                img = torchvision.transforms.ToTensor()(img) # should be converted to tensor even if img_transformation is None
             frames_data.append(img)
             if idx == self.num_frame - 1:
                 break
         video = torch.stack(frames_data)
-        if not cache and self.dataprocess is not None: #test if not cache
-            video = self.dataprocess(video)
-            pass
         return video
 
     def __len__(self):
@@ -127,8 +98,6 @@ class Basketball(torch.utils.data.Dataset):
         elif self.split == 'validation':
             validationsamples = self._getpath()
             samples = validationsamples
-        
-        
         return samples
 
     def train_test_split(self, train_size = 0.8):
@@ -154,6 +123,8 @@ class Basketball(torch.utils.data.Dataset):
         testobj.samples = [i for i in testobj.samples]
         random.shuffle(testobj.samples)
         testobj.length = len(testobj.samples)
+
+
         
         return trainobj, testobj
         
@@ -186,3 +157,12 @@ class Basketball(torch.utils.data.Dataset):
         else:
             cacheavailable = True
         return cacheavailable
+
+    def get_opticalflow_view(self, trainset, testset, opticalpath):
+        trainsetoptical = copy.deepcopy(trainset)
+        trainsetoptical.samples = [[sample[0].replace(trainsetoptical.path, opticalpath), sample[1]] for sample in trainsetoptical.samples]
+        trainsetoptical.path = opticalpath
+        testsetoptical = copy.deepcopy(testset)
+        testsetoptical.samples = [[sample[0].replace(testsetoptical.path, opticalpath), sample[1]] for sample in testsetoptical.samples]
+        testsetoptical.path = opticalpath
+        return trainsetoptical, testsetoptical

@@ -13,23 +13,31 @@ import CNN2DLSTM.module
 import CNN2DLSTM.function
 import OPTICALCONV3D.module
 import OPTICALCONV3D.function
+import copy
 
 img_transformation = torchvision.transforms.Compose([
     torchvision.transforms.Resize((48,48)),
     torchvision.transforms.CenterCrop((48,48)),
     torchvision.transforms.ToTensor()
 ])
+path = "cache"
+opticalpath = 'opticalflow'
+#dataprocess = Preprocess(path).background_subtractor
 
-dataprocess = Preprocess().background_subtractor
 
 
-path = "data"
-dataset = Basketball(path, split='training', num_frame = 100, img_transform = img_transformation, 
-                     dataprocess=dataprocess, cacheifavailable=True, savecache=True, combineview=True, cachepath='cache')
+dataset = Basketball(path, split='training', num_frame = 100)
 trainset, testset = dataset.train_test_split(train_size=0.8)
+
+
+trainsetoptical, testsetoptical = dataset.get_opticalflow_view(trainset, testset, opticalpath)
 
 trainset = DataLoader(trainset, shuffle=True)
 testset = DataLoader(testset, shuffle=True)
+
+
+trainsetoptical = DataLoader(trainsetoptical, shuffle=True)
+testsetoptical = DataLoader(testsetoptical, shuffle=True)
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 torch.backends.cudnn.benchmark = True
@@ -39,7 +47,8 @@ def run(module='FFNN', testeverytrain=True, EPOCHS=1):
     loss = torch.nn.CrossEntropyLoss().to(device)
     if module=='FFNN':
         out_features = 2 # only 2 classifier hit or miss
-        in_features = dataset[0][0].numel()
+        in_features = dataset[0][0]
+        in_features = in_features.numel()
         network = FFNN.module.FFNN(in_features=in_features, out_features=out_features)
         optimizer = torch.optim.SGD(network.parameters(), lr=0.001, momentum=0.4, nesterov=True)
         obj = FFNN.function.FFNNTraintest(device, network, loss, optimizer)
@@ -69,11 +78,19 @@ def run(module='FFNN', testeverytrain=True, EPOCHS=1):
     print("------------------------------------------------------")
     i = 1
     for epoch in range(0, EPOCHS):
-        total, running_loss = obj.train(trainset)
+        total = 0
+        running_loss = 0
+        if module=='OPTICALCONV3D':
+            total, running_loss = obj.train(trainset, trainsetoptical)
+        else:
+            total, running_loss = obj.train(trainset)
         print("|      {}     |   {}     |   {:.4f}  |               |".format(i, total, running_loss/total) )
         print("------------------------------------------------------")
         if  (i == EPOCHS) or testeverytrain:
-            total, correct = obj.test(testset)
+            if module=='OPTICALCONV3D':
+                total, correct = obj.test(testset, testsetoptical)
+            else:
+                total, correct = obj.test(testset)
             print("|      {}     |    {}     |           | ({}) {:.1f} %   |".format(i, total, correct, 100 * correct/total))
             print("------------------------------------------------------")
         i += 1
