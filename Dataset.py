@@ -27,19 +27,21 @@ class Basketball(torch.utils.data.Dataset):
         self.split = split
         self.num_frame = num_frame
         self.length = 0
-        self.hit = 'hit'
-        self.miss = 'miss'
+        self.sample = ''
+        self.sample_num = 0
         self.samples = self._find_videos()
         random.shuffle(self.samples)
-        pass
+        
 
     def __getitem__(self, index):
         path = self.samples[index]
+        self.sample = path
+        self.sample_num += 1
         if path is None:
             print('No testdata on the folder ', index)
-        if self.miss == path[1]:
+        if 'miss' == path[1]:
             label = 0
-        elif self.hit == path[1]:
+        elif 'hit' == path[1]:
             label = 1
         views = os.listdir(path[0])
         if len(views) == 2:
@@ -91,8 +93,8 @@ class Basketball(torch.utils.data.Dataset):
     def _find_videos(self):
         samples = []
         if self.split == 'training':
-            hitsamples = self._getpath(self.hit)
-            misssamples = self._getpath(self.miss)
+            hitsamples = self._getpath('hit')
+            misssamples = self._getpath('miss')
             samples = hitsamples + misssamples
             pass
         elif self.split == 'validation':
