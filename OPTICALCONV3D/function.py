@@ -82,7 +82,6 @@ class OPTICALCONV3DTraintest():
                 optical_inputs = self.resizeInputforconv3D(optical_inputs)
                 optical_inputs = torch.cat([optical_inputs[0][0], optical_inputs[0][1]], dim=2).unsqueeze(dim=0)
 
-                
                 #conv3d
                 self.cnn3d.zero_grad()
                 cnn3d_out = self.cnn3d(conv3d_inputs)

@@ -157,12 +157,3 @@ class Basketball(torch.utils.data.Dataset):
         else:
             cacheavailable = True
         return cacheavailable
-
-    def get_opticalflow_view(self, trainset, testset, opticalpath):
-        trainsetoptical = copy.deepcopy(trainset)
-        trainsetoptical.samples = [[sample[0].replace(trainsetoptical.path, opticalpath), sample[1]] for sample in trainsetoptical.samples]
-        trainsetoptical.path = opticalpath
-        testsetoptical = copy.deepcopy(testset)
-        testsetoptical.samples = [[sample[0].replace(testsetoptical.path, opticalpath), sample[1]] for sample in testsetoptical.samples]
-        testsetoptical.path = opticalpath
-        return trainsetoptical, testsetoptical
