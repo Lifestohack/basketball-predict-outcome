@@ -15,20 +15,17 @@ class FFNNTraintest():
 
         self.loss = loss if loss is not None else torch.nn.CrossEntropyLoss().to(device)
         self.optimizer = optimizer if optimizer is not None else torch.optim.SGD(network.parameters(), lr=0.001, momentum=0.4, nesterov=True)
-        network = network.to(device)
+        #network = network.to(device)
 
     def train(self, trainset):
         self.network.train()
         running_loss = 0.0
         total = 0
         for inputs, targets in trainset:
-            # use this if different views needs to not combined
-            #inputs = torch.cat((inputs[0][0], inputs[0][1]), dim=3)
-            #inputs = inputs.transpose(2, 3) 
-            inputs = inputs.reshape(1,-1).to(self.device)
+            inputs = inputs.to(self.device)
             targets = targets.to(self.device)
-            outputs = self.network(inputs)
             self.network.zero_grad()
+            outputs = self.__run(inputs)
             l = self.loss(outputs, targets)
             l.backward()
             self.optimizer.step()
@@ -43,13 +40,20 @@ class FFNNTraintest():
         total = 0
         with torch.no_grad():
             for inputs, targets in testset:
-                #inputs = torch.cat((inputs[0][0], inputs[0][1]), dim=3)
-                #inputs = inputs.transpose(2, 3)
-                inputs = inputs.reshape(1,-1).to(self.device)
-                target = targets.to(self.device)
-                outputs = self.network(inputs)
+                inputs = inputs.to(self.device)
+                targets = targets.to(self.device)
+                outputs = self.__run(inputs)
                 _, predicted = torch.max(outputs.data, 1)
-                total += target.size(0)
-                correct += (predicted == target).sum().item()
+                total += targets.size(0)
+                correct += (predicted == targets).sum().item()
         return total, correct
-        
+    
+    def __run(self, inputs):
+        inputs = self._resize(inputs)
+        outputs = self.network(inputs)
+        return outputs
+
+
+    def _resize(self, inputs):
+        return inputs.reshape(1,-1)
+

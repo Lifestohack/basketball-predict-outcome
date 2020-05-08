@@ -20,9 +20,9 @@ class OPTICALCONV3DTraintest():
         self.loss = loss if loss is not None else torch.nn.CrossEntropyLoss().to(device)
         cnn_params = list(self.cnn3d.parameters()) + list(self.opticalcnn3d.parameters()) + list(self.twostream.parameters())
         self.optimizer = optimizer if optimizer is not None else torch.optim.SGD(cnn_params, lr=0.001, momentum=0.4, nesterov=True)
-        self.cnn3d = self.cnn3d.to(device)
-        self.opticalcnn3d = self.opticalcnn3d.to(device)
-        self.twostream = self.twostream.to(device)
+        #self.cnn3d = self.cnn3d.to(device)
+        #self.opticalcnn3d = self.opticalcnn3d.to(device)
+        #self.twostream = self.twostream.to(device)
 
     def train(self, trainset, trainsetoptical):
         self.cnn3d.train()
@@ -35,25 +35,10 @@ class OPTICALCONV3DTraintest():
             conv3d_inputs = conv3d[0].to(self.device)
             optical_inputs= optical[0].to(self.device)
             targets = conv3d[1].to(self.device)
-            
-            conv3d_inputs = self.resizeInputforconv3D(conv3d_inputs)
-            conv3d_inputs = torch.cat([conv3d_inputs[0][0], conv3d_inputs[0][1]], dim=2).unsqueeze(dim=0)
-
-            optical_inputs = self.resizeInputforconv3D(optical_inputs)
-            optical_inputs = torch.cat([optical_inputs[0][0], optical_inputs[0][1]], dim=2).unsqueeze(dim=0)
-
-            
-            #conv3d
             self.cnn3d.zero_grad()
-            cnn3d_out = self.cnn3d(conv3d_inputs)
-           
-            #opticalconv3d
             self.opticalcnn3d.zero_grad()
-            optical_out = self.opticalcnn3d(optical_inputs)
-
-            #twostream
             self.twostream.zero_grad()
-            outputs = self.twostream(cnn3d_out, optical_out)
+            outputs = self.__run(conv3d_inputs, optical_inputs)
             
             # loss, backpropagation
             l = self.loss(outputs, targets)
@@ -75,30 +60,24 @@ class OPTICALCONV3DTraintest():
                 conv3d_inputs = conv3d[0].to(self.device)
                 optical_inputs= optical[0].to(self.device)
                 targets = conv3d[1].to(self.device)
-                
-                conv3d_inputs = self.resizeInputforconv3D(conv3d_inputs)
-                conv3d_inputs = torch.cat([conv3d_inputs[0][0], conv3d_inputs[0][1]], dim=2).unsqueeze(dim=0)
-
-                optical_inputs = self.resizeInputforconv3D(optical_inputs)
-                optical_inputs = torch.cat([optical_inputs[0][0], optical_inputs[0][1]], dim=2).unsqueeze(dim=0)
-
-                #conv3d
                 self.cnn3d.zero_grad()
-                cnn3d_out = self.cnn3d(conv3d_inputs)
-            
-                #opticalconv3d
                 self.opticalcnn3d.zero_grad()
-                optical_out = self.opticalcnn3d(optical_inputs)
-
-                #twostream
                 self.twostream.zero_grad()
-                outputs = self.twostream(cnn3d_out, optical_out)
+                outputs = self.__run(conv3d_inputs, optical_inputs)
                 _, predicted = torch.max(outputs.data, 1)
                 total += targets.size(0)
                 correct += (predicted == targets).sum().item()
         return total, correct
 
-    def resizeInputforconv3D(self, inputs):
+    def __run(self, conv3d_inputs, optical_inputs):
+        conv3d_inputs = self.__resize(conv3d_inputs)
+        optical_inputs = self.__resize(optical_inputs)
+        cnn3d_out = self.cnn3d(conv3d_inputs)           #conv3d
+        optical_out = self.opticalcnn3d(optical_inputs) #opticalconv3d
+        outputs = self.twostream(cnn3d_out, optical_out)
+        return outputs
+
+    def __resize(self, inputs):
         batch = inputs.shape[0]
         views = inputs.shape[1]
         frame = inputs.shape[2]
@@ -106,4 +85,5 @@ class OPTICALCONV3DTraintest():
         height = inputs.shape[4]
         width = inputs.shape[5]
         inputs = inputs.view(batch, views, channel, frame, height, width)
+        inputs = torch.cat([inputs[0][0], inputs[0][1]], dim=2).unsqueeze(dim=0)
         return inputs
