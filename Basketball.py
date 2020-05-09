@@ -2,7 +2,6 @@ import random
 import torch
 import torchvision
 import Dataset
-from Dataprocess import Preprocess
 from torch.utils.data import DataLoader
 from PIL import Image
 import CNN3D.module
@@ -17,14 +16,13 @@ import copy
 import torch.nn as nn
 
 class Basketball():
-    def __init__(self, data, num_frame):
+    def __init__(self, data, num_frame, split='training'):
         super().__init__()
         if not data or not num_frame:
             raise RuntimeError('Please pass parameter.')
         self.data = data
         self.num_frame = num_frame
-
-        dataset = Dataset.Basketball(self.data, split='training', num_frame = self.num_frame)
+        dataset = Dataset.Basketball(self.data, split=split, num_frame = self.num_frame)
         self.trainset, self.testset = dataset.train_test_split(train_size=0.8)
         self.trainset_loader = DataLoader(self.trainset, shuffle=True)
         self.testset_loader = DataLoader(self.testset, shuffle=True)
