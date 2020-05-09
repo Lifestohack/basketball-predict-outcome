@@ -4,12 +4,12 @@ import numpy as np
 import cv2 as cv
 import os
 
-def draw_flow(img, flow, step=16):
+def __draw_flow(img, flow, step=16):
     h, w = img.shape[:2]
     y, x = np.mgrid[step/2:h:step, step/2:w:step].reshape(2,-1).astype(int)
     fx, fy = flow[y,x].T
     lines = np.vstack([x, y, x+fx, y+fy]).T.reshape(-1, 2, 2)
-    lines = np.int32(lines + 0.5)
+    lines = np.int32(lines + 0.9)
     vis = cv.cvtColor(img, cv.COLOR_GRAY2BGR)
     cv.polylines(vis, lines, 0, (0, 255, 0))
     for (x1, y1), (_x2, _y2) in lines:
@@ -17,7 +17,7 @@ def draw_flow(img, flow, step=16):
     return vis
 
 
-def draw_hsv(flow):
+def __draw_hsv(flow):
     h, w = flow.shape[:2]
     fx, fy = flow[:,:,0], flow[:,:,1]
     ang = np.arctan2(fy, fx) + np.pi
@@ -30,7 +30,7 @@ def draw_hsv(flow):
     return bgr
 
 
-def warp_flow(img, flow):
+def __warp_flow(img, flow):
     h, w = flow.shape[:2]
     flow = -flow
     flow[:,:,0] += np.arange(w)
@@ -38,38 +38,43 @@ def warp_flow(img, flow):
     res = cv.remap(img, flow, None, cv.INTER_LINEAR)
     return res
 
-def opticalflow(imagesfolder, processfrom, processto, imagesize, visual=False):
-    images = iter(imagesfolder)
-    firstframepath = next(images, None)
-    prev = cv.imread(firstframepath) #Beware that cv.imread() returns a numpy array in BGR not RGB
+def get_optical_flow(images, visual=False):
+    if images is None:
+        raise RuntimeError('No images found.')
+    if images[0].shape[0] == 3:
+        images = [np.moveaxis(image, 0, 2) for image in images]
+    images = iter(images)
+    prev = next(images, None)
+    #prev = cv.imread(firstframepath) #Beware that cv.imread() returns a numpy array in BGR not RGB
 
     #_ret, prev = cam.read()
     prevgray = cv.cvtColor(prev, cv.COLOR_BGR2GRAY)
     show_hsv = True
     show_glitch = False
     show_vector = False
-    cur_glitch = prev.copy()
+    cur_glitch = prevgray.copy()
     i = 0
-    for imagepath in images:
-        img = cv.imread(imagepath)
+    video = []
+    for img in images:
+        #img = cv.imread(imagepath)
         gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
         flow = cv.calcOpticalFlowFarneback(prevgray, gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
         prevgray = gray
-        savepath = imagepath.replace(processfrom, processto)
-        savedir = os.path.dirname(savepath)
-        if not os.path.isdir(savedir):
-            os.makedirs(savedir)
-        new_img = draw_hsv(flow)
-        new_img = cv.resize(new_img, imagesize)
-        cv.imwrite(savepath, new_img)
+        #savepath = imagepath.replace(processfrom, processto)
+        #savedir = os.path.dirname(savepath)
+        #if not os.path.isdir(savedir):
+        #    os.makedirs(savedir)
+        new_img = __draw_hsv(flow)
+        #cv.imwrite(savepath, new_img)
+        video.append(new_img)
         i+=1
         if visual:
             if show_vector:
-                cv.imshow('flow', draw_flow(gray, flow))
+                cv.imshow('flow', __draw_flow(gray, flow))
             if show_hsv:
-                cv.imshow('flow HSV', draw_hsv(flow))
+                cv.imshow('flow HSV', __draw_hsv(flow))
             if show_glitch:
-                cur_glitch = warp_flow(cur_glitch, flow)
+                cur_glitch = __warp_flow(cur_glitch, flow)
                 cv.imshow('glitch', cur_glitch)
 
             ch = cv.waitKey(5)
@@ -83,3 +88,5 @@ def opticalflow(imagesfolder, processfrom, processto, imagesize, visual=False):
                 if show_glitch:
                     cur_glitch = img.copy()
                 print('glitch is', ['off', 'on'][show_glitch])
+    return video
+        
