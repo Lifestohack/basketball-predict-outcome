@@ -41,10 +41,13 @@ def __warp_flow(img, flow):
 def get_optical_flow(images, visual=False):
     if images is None:
         raise RuntimeError('No images found.')
-    if images[0].shape[0] == 3:
-        images = [np.moveaxis(image, 0, 2) for image in images]
+    #if images[0].shape[0] == 3:
+    #    images = [np.moveaxis(image, 0, 2) for image in images]
     images = iter(images)
+
     prev = next(images, None)
+    prev = np.array(prev)
+    
     #prev = cv.imread(firstframepath) #Beware that cv.imread() returns a numpy array in BGR not RGB
 
     #_ret, prev = cam.read()
@@ -57,6 +60,7 @@ def get_optical_flow(images, visual=False):
     video = []
     for img in images:
         #img = cv.imread(imagepath)
+        img = np.array(img)
         gray = cv.cvtColor(img, cv.COLOR_BGR2GRAY)
         flow = cv.calcOpticalFlowFarneback(prevgray, gray, None, 0.5, 3, 15, 3, 5, 1.2, 0)
         prevgray = gray
