@@ -38,6 +38,12 @@ def __warp_flow(img, flow):
     res = cv.remap(img, flow, None, cv.INTER_LINEAR)
     return res
 
+def flow_to_color(flow, hsv):
+    mag, ang = cv.cartToPolar(flow[..., 0], flow[..., 1])
+    hsv[..., 0] = ang*180/np.pi/2
+    hsv[..., 2] = cv.normalize(mag, None, 0, 255, cv.NORM_MINMAX)
+    return cv.cvtColor(hsv, cv.COLOR_HSV2BGR)
+
 def get_optical_flow(images, visual=False):
     if images is None:
         raise RuntimeError('No images found.')
@@ -58,6 +64,8 @@ def get_optical_flow(images, visual=False):
     cur_glitch = prevgray.copy()
     i = 0
     video = []
+    hsv = np.zeros_like(prev)
+    hsv[..., 1] = 255
     for img in images:
         #img = cv.imread(imagepath)
         img = np.array(img)
@@ -68,7 +76,7 @@ def get_optical_flow(images, visual=False):
         #savedir = os.path.dirname(savepath)
         #if not os.path.isdir(savedir):
         #    os.makedirs(savedir)
-        new_img = __draw_hsv(flow)
+        new_img = flow_to_color(flow, hsv)
         #cv.imwrite(savepath, new_img)
         video.append(new_img)
         i+=1

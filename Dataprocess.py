@@ -202,7 +202,7 @@ class Preprocess:
         if videos is None:
             raise RuntimeError('No input tensor provided.')
         if method=='median':
-            return self.__meidan_array(videos, 30)
+            return self.__meidan_array(videos, 50)
         else:
             raise ValueError()
 
@@ -243,20 +243,3 @@ class Preprocess:
         else:
             cacheavailable = True
         return cacheavailable
-
-# Dataset processing
-dataset_path = 'data'
-save_path = 'cache'
-of_save_path = 'optics'
-pp_opt_flow = False
-resize = (50, 50)
-
-
-
-process = Preprocess(dataset_path=dataset_path, 
-                save_path=save_path, 
-                of_save_path=of_save_path, 
-                pp_opt_flow=pp_opt_flow, 
-                resize=resize)
-
-process.prepare_data()
