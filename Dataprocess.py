@@ -7,7 +7,6 @@ import torchvision
 import numpy as np
 import cv2 as cv
 import denseflow
-from skimage import io, transform
 import numpy
 import time
 import shutil
@@ -128,7 +127,14 @@ class Preprocess:
         if re_size_scale:
             org_height =  video[0].shape[0]
             org_width =  video[0].shape[1]
-            ratio = org_width / org_height
+            ratio = 1
+            view1 = True
+            if org_height > org_width:
+                view1 = False
+                ratio = org_height / org_width
+            else:
+                ratio = org_width / org_height
+
             for frame in video:
                 #resampling using pixel area relation. It may be a preferred method for image decimation, 
                 # as it gives moire'-free results. But when the image is zoomed, 
@@ -138,7 +144,13 @@ class Preprocess:
                 # re_size_scale -> H x W         
                 height = re_size_scale[0]
                 width = int(ratio * height)
-                frame_resize = cv.resize(frame, (width, height))    # uses cv.INTER_AREA interpolation. 
+                if view1:
+                    frame_resize = cv.resize(frame, (height, width))    # uses cv.INTER_AREA interpolation. 
+                else: 
+                    frame_resize = cv.resize(frame, (width, height))    # uses cv.INTER_AREA interpolation. 
+
+
+
                 frame_crop = self.crop_center(frame_resize, re_size_scale[0], re_size_scale[1])
                 resized_video.append(frame_crop)
             resized_video = np.stack(resized_video) 
@@ -231,3 +243,20 @@ class Preprocess:
         else:
             cacheavailable = True
         return cacheavailable
+
+# Dataset processing
+dataset_path = 'data'
+save_path = 'cache'
+of_save_path = 'optics'
+pp_opt_flow = False
+resize = (50, 50)
+
+
+
+process = Preprocess(dataset_path=dataset_path, 
+                save_path=save_path, 
+                of_save_path=of_save_path, 
+                pp_opt_flow=pp_opt_flow, 
+                resize=resize)
+
+process.prepare_data()
