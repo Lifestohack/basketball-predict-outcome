@@ -62,10 +62,10 @@ class Preprocess:
             else:
                 subsub_path_list = self.__recursive_prepare_data(subsubpath)
                 if len(subsub_path_list) > 0:
-                    self.__data_process(subsub_path_list)
+                    self.data_process(subsub_path_list)
         return filespath
 
-    def __data_process(self, subsubpath):
+    def data_process(self, subsubpath):
         processdir = os.path.dirname(subsubpath[0])
         print('Data processing at', processdir)
         org_video = self.get_video(subsubpath)
@@ -86,7 +86,7 @@ class Preprocess:
             else:
                 self.dense_transform(org_video, subsubpath, save=True)
         else:
-            raise RuntimeError('Weird!!! I am not suppose to be here. Something went wrong during __data_process()')
+            raise RuntimeError('Weird!!! I am not suppose to be here. Something went wrong during data_process()')
 
     def img_transform(self, video, subsubpath, save=False):
         no_background_video = self.remove_background(video)
