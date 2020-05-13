@@ -14,6 +14,7 @@ import OPTICALCONV3D.module
 import OPTICALCONV3D.function
 import copy
 import torch.nn as nn
+from serialize import Serialize
 
 class Basketball():
     def __init__(self, data, width=50, height=50, num_frames=100, split='training'):
@@ -35,8 +36,39 @@ class Basketball():
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         torch.backends.cudnn.benchmark = True
 
+
     def run(self, module='FFNN', testeverytrain=True, EPOCHS=1, opticalpath=None):
-        print("Starting {} using the data in {}.".format(module, self.data ) )
+        print("Starting {} using the data in folder {}.".format(module, self.data ) )
+        train_test, network = self.__module(module)
+        for epoch in range(1, EPOCHS+1):
+            running_loss = 0
+            total_train = len(self.trainset_loader.dataset)
+            total_test = len(self.testset_loader.dataset)
+            print('Epocs: ', epoch)
+            if module=='OPTICALCONV3D':
+                #running_loss = train_test.train(self.trainset_loader, train_optical_loader)
+                raise NotImplementedError("Opticalconv3d is deactivated.")
+            else:
+                running_loss = train_test.train(self.trainset_loader)
+            print("\nTrain loss: {:.4f}".format(running_loss/total_train) )
+            if  (epoch == EPOCHS) or testeverytrain:
+                if module=='OPTICALCONV3D':
+                #    correct, test_loss = obj.test(self.testset_loader, test_optical_loader)
+                    raise NotImplementedError("Opticalconv3d is deactivated.")
+                    pass
+                else:
+                    correct, test_loss = train_test.test(self.testset_loader)
+                print("\nTest loss: {:.4f}, Prediction: ({}/{}) {:.1f} %".format(test_loss/total_test, correct, total_test, 100 * correct/total_test))
+            print("-------------------------------------")
+        network.to('cpu')
+        print("Saving network...")
+        save_path_trained_network = self.config['trained_network']
+        ser = Serialize(save_path_trained_network)
+        ser.save(model=network, modelclass=module)
+        print("Done")
+
+    def __module(self, module):
+        obj = None
         if module=='FFNN':
             obj = self.__FFNN()
         elif module=='CNN3D':
@@ -44,28 +76,11 @@ class Basketball():
         elif module=='CNN2DLSTM':
             obj = self.__CNN2DLSTM()
         elif module=='OPTICALCONV3D':
-            obj, train_optical_loader, test_optical_loader = self.__OPTICALCONV3D(opticalpath)
+            #obj, train_optical_loader, test_optical_loader = self.__OPTICALCONV3D(opticalpath)
+            pass
         else:
-            ValueError()
-        i = 1
-        for epoch in range(0, EPOCHS):
-            running_loss = 0
-            total_train = len(self.trainset_loader.dataset)
-            total_test = len(self.testset_loader.dataset)
-            print('Epocs: ', i)
-            if module=='OPTICALCONV3D':
-                running_loss = obj.train(self.trainset_loader, train_optical_loader)
-            else:
-                running_loss = obj.train(self.trainset_loader)
-            print("\nTrain loss: {:.4f}".format(running_loss/total_train) )
-            if  (i == EPOCHS) or testeverytrain:
-                if module=='OPTICALCONV3D':
-                    correct, test_loss = obj.test(self.testset_loader, test_optical_loader)
-                else:
-                    correct, test_loss = obj.test(self.testset_loader)
-                print("\nTest loss: {:.4f}, Prediction: ({}/{}) {:.1f} %".format(test_loss/total_test, correct, total_test, 100 * correct/total_test))
-            print("-------------------------------------")
-            i += 1
+            ValueError("Network {} doesnot exists.".format(module))
+        return obj
 
     def __FFNN(self):
         loss = torch.nn.CrossEntropyLoss().to(self.device)
@@ -77,34 +92,32 @@ class Basketball():
         network.to(self.device)
         optimizer = torch.optim.SGD(network.parameters(), lr=0.001, momentum=0.4, nesterov=True)
         obj = FFNN.function.FFNNTraintest(self.device, network, loss, optimizer)
-        return obj
+        return obj, network
 
     def __CNN3D(self):
         loss = torch.nn.CrossEntropyLoss().to(self.device)
         network = CNN3D.module.CNN3D(width=self.width, height=self.height, in_channels=self.channel, num_frames=self.num_frames, out_features=self.out_features, drop_p=self.drop_p, fcout=[256, 128]) # the shape of input will be Batch x Channel x Depth x Height x Width
-        if torch.cuda.device_count() > 1:   #   will use multiple gpu if available
+        if torch.cuda.device_count() > 1:                                   #   will use multiple gpu if available
             network = nn.DataParallel(network) 
         network.to(self.device)
         optimizer = torch.optim.SGD(network.parameters(), lr=0.001, momentum=0.4, nesterov=True)
         obj = CNN3D.function.CNN3DTraintest(self.device, network, loss, optimizer)
-        return obj
+        return obj, network
 
     def __CNN2DLSTM(self):
         loss = torch.nn.CrossEntropyLoss().to(self.device)
         #width = 384, height=2*192  2 for two views concatenated
-        encoder2Dnet = CNN2DLSTM.module.CNN2D(width=self.width, height=self.width, drop_p=self.drop_p, fcout=[2048, 512], num_frames=self.num_frames) # Batch x Depth x Channel x Height x Width
-        decoderltsm = CNN2DLSTM.module.LTSM(num_frames=self.num_frames, out_features=self.out_features, num_layers=3, hidden_size=256, fc1out=128, drop_p=self.drop_p, bidirectional=True)
-       
-        if torch.cuda.device_count() > 1:   #   will use multiple gpu if available
-            encoder2Dnet = nn.DataParallel(encoder2Dnet)
-            decoderltsm = nn.DataParallel(decoderltsm) 
-        encoder2Dnet.to(self.device)
-        decoderltsm.to(self.device)
-        cnn_params = list(encoder2Dnet.parameters()) + list(decoderltsm.parameters())
-        optimizer = torch.optim.SGD(cnn_params, lr=0.001, momentum=0.4, nesterov=True)
+        network = CNN2DLSTM.module.CNN2DLTSM(width=self.width, height=self.width, encoder_fcout=[2048, 512], 
+                                                num_frames=self.num_frames, drop_p=self.drop_p,
+                                                out_features=self.out_features, decoder_fcin=[128], num_layers=3, hidden_size=256, bidirectional=True)  # Batch x Depth x Channel x Height x Width
+
+        if torch.cuda.device_count() > 1:                                       #   will use multiple gpu if available
+            network = nn.DataParallel(network)
+        network.to(self.device)
+        optimizer = torch.optim.SGD(network.parameters(), lr=0.001, momentum=0.4, nesterov=True)
         #optimizer = torch.optim.Adam(cnn_params, lr=0.0001)
-        obj = CNN2DLSTM.function.CNN2DLSTMTraintest(self.device, encoder2Dnet, decoderltsm, loss, optimizer)
-        return obj
+        obj = CNN2DLSTM.function.CNN2DLSTMTraintest(self.device, network, loss, optimizer)
+        return obj, network
 
     def __OPTICALCONV3D(self, opticalpath):
         loss = torch.nn.CrossEntropyLoss().to(self.device)
