@@ -10,49 +10,52 @@ from torchvision.utils import save_image
 import random
 from torch.utils.data import DataLoader
 import copy 
-
-#   TODO
-#   do i need to shuffel samples as it will be shuffel by dataloader??
-
+import cache
 
 # Classifier
 # Hit = 1
 # Miss = 2
 class Basketball(torch.utils.data.Dataset):
-    def __init__(self, path, split='training', num_frame=100):
+    def __init__(self, path, split='training', num_frames=100):
         super().__init__()
         #split = training or validation
-        #num_frame = 30, 50 or 100                                                                                                                             
+        #num_frames = 30, 50 or 100                                                                                                                             
         self.path = path
         self.split = split
-        self.num_frame = num_frame
+        self.num_frames = num_frames
         self.length = 0
-        self.sample = ''
+        self.curr_sample = None
         self.sample_num = 0
         self.samples = self._find_videos()
         random.shuffle(self.samples)
-        
+        self.__cache = cache.Cache()
 
     def __getitem__(self, index):
-        path = self.samples[index]
-        self.sample = path
-        self.sample_num += 1
-        if path is None:
+        self.curr_sample = self.samples[index]
+        if self.curr_sample is None:
             print('No testdata on the folder ', index)
-        if 'miss' == path[1]:
+        item, isavaiable = self.__cache.getcache(self.curr_sample)
+        if isavaiable == True:
+            return item.get('frames'), item.get('label')
+        if 'miss' in self.curr_sample:
             label = 0
-        elif 'hit' == path[1]:
+        elif 'hit' in self.curr_sample:
             label = 1
-        views = os.listdir(path[0])
-        if len(views) == 2:
-            view1path = os.path.join(path[0], views[0])
-            view2path = os.path.join(path[0], views[0])
+        else:
+            raise ValueError('No hit or miss data found.')
+        label = torch.as_tensor(label)
+        views = os.listdir(self.curr_sample)
+        if 'view' in views:
+            view1path = os.path.join(self.curr_sample, views[0])
+            view2path = os.path.join(self.curr_sample, views[1])
             view1 = self.get_view(view1path)
             view2 = self.get_view(view2path)
             view = torch.stack([view1, view2])
+            self.setcache(path[0], view, label)
             return view, label
         else:
-            view = self.get_view(path[0])
+            view = self.get_view(self.curr_sample)
+            self.__cache.setcache(self.curr_sample, view, label)
             return view, label
 
     def savecombinedcache(self, view, path):
@@ -80,9 +83,9 @@ class Basketball(torch.utils.data.Dataset):
         for idx, frame in enumerate(frames):
             img = Image.open(os.path.join(path, frame))     # may be in future will save the processed images as tensor and not as image
             if not isinstance(img, torch.Tensor):
-                img = torchvision.transforms.ToTensor()(img) # should be converted to tensor even if img_transformation is None
+                img = torchvision.transforms.ToTensor()(img) # should be converted to tensor
             frames_data.append(img)
-            if idx == self.num_frame - 1:
+            if idx == self.num_frames - 1:
                 break
         video = torch.stack(frames_data)
         return video
@@ -93,21 +96,22 @@ class Basketball(torch.utils.data.Dataset):
     def _find_videos(self):
         samples = []
         if self.split == 'training':
-            hitsamples = self._getpath('hit')
-            misssamples = self._getpath('miss')
-            samples = hitsamples + misssamples
+            samples = self._getpaths(self.path)
+            #hitsamples = self._getpaths('hit')
+            #misssamples = self._getpaths('miss')
+            #samples = hitsamples + misssamples
             pass
         elif self.split == 'validation':
-            validationsamples = self._getpath()
+            validationsamples = self._getpaths()
             samples = validationsamples
         return samples
 
     def train_test_split(self, train_size = 0.8):
-        hitsamples = [x for x in self.samples if x[1] == 'hit']
+        hitsamples = [x for x in self.samples if 'hit' in x]
         hitnum = int(train_size * len(hitsamples))
         hittrainsamples = hitsamples[:hitnum] 
         hittestamples = hitsamples[hitnum:] 
-        misssamples = [x for x in self.samples if x[1] == 'miss']
+        misssamples = [x for x in self.samples if 'miss' in x]
         missnum = int(train_size * len(misssamples))
         misstrainsamples = misssamples[:missnum] 
         misstestamples = misssamples[missnum:] 
@@ -125,26 +129,44 @@ class Basketball(torch.utils.data.Dataset):
         testobj.samples = [i for i in testobj.samples]
         random.shuffle(testobj.samples)
         testobj.length = len(testobj.samples)
-
-
-        
         return trainobj, testobj
         
 
-    def _getpath(self, label=''):
-        path = os.path.join(self.path, self.split, label)
+    def _getpath(self, label=None):
+        #obsolete
+        hitormiss = ''
+        if label is not None:
+            hitormiss = label
+        path = os.path.join(self.path, self.split, hitormiss)
         samples = []
         subdir = os.listdir(path)
-        subdir = sorted(subdir, key=int)
+        #subdir = sorted(subdir, key=int)
         for item in subdir:
             sampleitem = []
             sampleitem.append(os.path.join(path, item))
-            sampleitem.append(label)
+            sampleitem.append(hitormiss)
             samples.append(sampleitem)
             self.length = self.length + 1
         return samples
 
-    def iscacheavailable(self, cache1, cache2):
+    def _getpaths(self, data_path):
+        # get sample number folder without views
+        go_deeper = True
+        filespath = []
+        subdir = os.listdir(data_path)
+        for subpath in subdir:
+            subsubpath = os.path.join(data_path, subpath)
+            try: 
+                int(subpath)
+                go_deeper = False
+                filespath.append(subsubpath)
+            except ValueError:
+                if go_deeper:
+                    subsub_path_list = self._getpaths(subsubpath)   
+                filespath += subsub_path_list                
+        return filespath
+
+    def isviewsavailable(self, cache1, cache2):
         cache = False
         if not os.path.isdir(cache1) or not os.path.isdir(cache2):
             cache = False
@@ -152,7 +174,7 @@ class Basketball(torch.utils.data.Dataset):
             cache = True
         return cache
 
-    def iscacheavailable(self, cache):
+    def isviewavailable(self, cache):
         cacheavailable = False
         if not os.path.isdir(cache):
             cacheavailable = False
