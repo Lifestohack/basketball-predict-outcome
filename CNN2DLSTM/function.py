@@ -1,4 +1,6 @@
 import torch
+import time
+import sys
 
 class CNN2DLSTMTraintest():
 
@@ -26,7 +28,9 @@ class CNN2DLSTMTraintest():
         self.encoder2Dnet.train()
         self.decoderltsm.train()
         running_loss = 0.0
-        total = 0
+        running_total = 0
+        total_time_required = 0
+        start = time.time()
         for inputs, targets in trainset:
             inputs = inputs.to(self.device)
             targets = targets.to(self.device)
@@ -38,31 +42,53 @@ class CNN2DLSTMTraintest():
             l.backward()
             self.optimizer.step()
             running_loss += l.item()
-            total += targets.size(0)
-        return total, running_loss
-       
+            running_total += targets.size(0)
+            end = time.time()
+            time_required = (end-start)
+            total_time_required += time_required
+            self.__print(time_required, total_time_required, running_total, len(trainset.dataset))
+            start = time.time()
+            torch.cuda.empty_cache()
+        return running_loss
 
     def test(self, testset):
         self.encoder2Dnet.eval()
         self.decoderltsm.eval()
+        running_loss = 0.0
         correct = 0
-        total = 0
+        running_total_tested = 0
         with torch.no_grad():
+            start = time.time()
+            total_time_required = 0
             for inputs, targets in testset:
                 inputs = inputs.to(self.device)
                 targets = targets.to(self.device)
                 outputs = self.__run(inputs, targets)
+                l = self.loss(outputs, targets)
+                running_loss += l.item()
                 _, predicted = torch.max(outputs.data, 1)
-                total += targets.size(0)
+                running_total_tested += targets.size(0)
                 correct += (predicted == targets).sum().item()
-        return total, correct
+                end = time.time()
+                time_required = (end-start)
+                total_time_required += time_required
+                self.__print(time_required, total_time_required, running_total_tested, len(testset.dataset))
+                start = time.time()
+                torch.cuda.empty_cache()
+        return correct, running_loss
 
     def __run(self, inputs, targets):
         inputs = self.__resize(inputs)
-        inputs = torch.cat([inputs[0][0], inputs[0][1]], dim=2).unsqueeze(dim=0) #concatenate two view
+        if len(inputs.shape) == 6:  # if two views then concatenated
+            inputs = torch.cat([inputs[0][0], inputs[0][1]], dim=2).unsqueeze(dim=0) #concatenate two view
         outputs = self.encoder2Dnet(inputs) #Encoder
         outputs = self.decoderltsm(outputs) #Decoder
         return outputs
 
     def __resize(self, inputs):
         return inputs
+
+    def __print(self, time_required, total_time_required, total, num_samples):
+        outstr = 'Time required for last sample: {:.2f}sec. Total time: {:.2f}sec.  Total tests: {}/{}'.format(time_required, total_time_required, total, num_samples)
+        sys.stdout.write('\r'+ outstr)
+
