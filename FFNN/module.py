@@ -7,7 +7,7 @@ import torch.nn.functional as F
 class FFNN(nn.Module):
     def __init__(self, in_features, out_features, drop_p, fcout, bias=False):
         super().__init__()
-        self.in_features = int(in_features)
+        self.in_features = in_features
         self.out_features = out_features
         self.drop_p = drop_p
         self.fcout = fcout 
