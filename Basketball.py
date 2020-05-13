@@ -15,6 +15,7 @@ import OPTICALCONV3D.function
 import copy
 import torch.nn as nn
 from serialize import Serialize
+import configparser
 
 class Basketball():
     def __init__(self, data, width=50, height=50, num_frames=100, split='training'):
@@ -36,6 +37,11 @@ class Basketball():
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         torch.backends.cudnn.benchmark = True
 
+        # Config parser
+        config = configparser.ConfigParser()
+        config.read('config.ini')
+        self.config = config['DEFAULT']
+        #a = config['trained_network']
 
     def run(self, module='FFNN', testeverytrain=True, EPOCHS=1, opticalpath=None):
         print("Starting {} using the data in folder {}.".format(module, self.data ) )
