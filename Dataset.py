@@ -45,13 +45,13 @@ class Basketball(torch.utils.data.Dataset):
             raise ValueError('No hit or miss data found.')
         label = torch.as_tensor(label)
         views = os.listdir(self.curr_sample)
-        if 'view' in views:
+        if 'view1' in views:
             view1path = os.path.join(self.curr_sample, views[0])
             view2path = os.path.join(self.curr_sample, views[1])
             view1 = self.get_view(view1path)
             view2 = self.get_view(view2path)
             view = torch.stack([view1, view2])
-            self.setcache(path[0], view, label)
+            self.__cache.setcache(self.curr_sample, view, label)
             return view, label
         else:
             view = self.get_view(self.curr_sample)
