@@ -3,7 +3,7 @@ from psutil import virtual_memory
 class Cache():
     def __init__(self):
         super().__init__()
-        self.__THRESHOLD = 1024 * 1024 * 1024 # in byte
+        self.__THRESHOLD = 1536 * 1024 * 1024 # in byte
         self.__length = 0
         self.__cache = []
 
@@ -14,10 +14,9 @@ class Cache():
         else:
             return cache[0], True
 
-
     def setcache(self, path, frames, label):
-        __mem = virtual_memory()
-        if __mem.free <= self.__THRESHOLD:
+        mem = virtual_memory().free
+        if mem <= self.__THRESHOLD:
             return
         self.__length += 1
         dictsframes = {'path': path,
