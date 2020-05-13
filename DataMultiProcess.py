@@ -14,6 +14,7 @@ class DataMultiProcess():
         self.resize = resize
         self.crop_width = 768
         self.crop_height = 384
+        self.pipeline = False
         self.process = Dataprocess.Preprocess(dataset_path=self.dataset_path, 
                             save_path=self.save_path, 
                             of_save_path=self.of_save_path, 
@@ -78,7 +79,7 @@ class DataMultiProcess():
                 os.makedirs(folder)
             cv.imwrite(frame_names[i], combo_frame)
             i+=1
-        print('Saved:  ', sample)
+        print('Saved:  ', folder)
 
     def crop_rotate_view(self, view, rotate):
         # Takes view folder and returns all the cropped images as array
@@ -135,32 +136,50 @@ class DataMultiProcess():
             cv.imwrite(frame_name, img)
         print('Saved: ', frame_name)
 
-    def rotate(self, sample):
+    def rotate(self, sample, path, rotate):
+        rotate_path = path
+        if path is None:
+            rotate_path =  self.save_path
         frames = os.listdir(sample)
         frames = [os.path.join(sample, frame) for frame in frames]
         for frame in frames:
             img = cv.imread(frame)
-            img = cv.rotate(img, cv.ROTATE_90_COUNTERCLOCKWISE)
-            frame = frame.replace(self.dataset_path, self.save_path)
+            img = cv.rotate(img, rotate)
+            frame = frame.replace(self.save_path, rotate_path)   # i am drunk and I dont know why I put this block in if clause
             folder = os.path.dirname(frame)
             if not os.path.isdir(folder):
                 os.makedirs(folder)
             cv.imwrite(frame, img)
-        print('Saved:  ', sample)
+        print('Saved:  ', folder)
 
-    def pipeline(self, sample):
+    def pipelines(self, sample):
         self.crop_resize_concatenate(sample)
+        #self.dataset_path = self.save_path
+        #frame_names = [framessortedname.replace(self.dataset_path, self.save_path) for framessortedname in frame_names]
+        save_rotate_path_90 = self.save_path + '_rotate_90'
+        save_rotate_path_180 = self.save_path + '_rotate_180'
+        save_rotate_path_270 = self.save_path + '_rotate_270'
+        read_path_sample =  sample.replace(self.dataset_path, self.save_path)
+        self.rotate(read_path_sample, save_rotate_path_90, cv.ROTATE_90_COUNTERCLOCKWISE)
+        self.rotate(read_path_sample, save_rotate_path_270, cv.ROTATE_90_CLOCKWISE)
+        self.rotate(read_path_sample, save_rotate_path_180, cv.ROTATE_180)
 
     def start(self):
         if __name__ == '__main__':
             # Dataset processing
             views = self.get_sample_folder_number(self.dataset_path)
-            self.pipeline(views[0])
+            #self.pipelines(views[0])
             try:
-                #use crop_resize_concatenate for resizing concatenating and saving
-                #use rotate to rotate images
-                pool = Pool(5)      # Create a multiprocessing Pool.
-                pool.map(self.rotate, views)  # process data_inputs iterable with pool
-            finally: # To make sure processes are closed in the end, even if errors happen
+                # use crop_resize_concatenate for resizing concatenating and saving
+                # use rotate to rotate images
+                pool = Pool(6)                  # Create a multiprocessing Pool.
+                pool.map(self.pipelines, views)    # process data_inputs iterable with pool
+            finally:                            # To make sure processes are closed in the end, even if errors happen
                 pool.close()
                 pool.join()
+
+
+DataMultiProcess('orgdata', 'data\\crop_resize_96x96', 'optics', True, (96, 96)).start()
+#crop_resize_con_rotate90_128x128
+#crop_resize_con_rotate180_128x128
+#crop_resize_con_rotate270_128x128
