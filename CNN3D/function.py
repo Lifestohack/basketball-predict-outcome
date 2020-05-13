@@ -1,4 +1,6 @@
 import torch
+import sys
+import time
 
 class CNN3DTraintest():
 
@@ -16,7 +18,9 @@ class CNN3DTraintest():
     def train(self, trainset):
         self.network.train()
         running_loss = 0.0
-        total = 0
+        running_total = 0
+        total_time_required = 0
+        start = time.time()
         for inputs, targets in trainset:
             inputs = inputs.to(self.device)
             targets = targets.to(self.device)
@@ -26,35 +30,57 @@ class CNN3DTraintest():
             l.backward()
             self.optimizer.step()
             running_loss += l.item()
-            total += targets.size(0)
-        return total, running_loss
+            running_total += targets.size(0)
+            end = time.time()
+            time_required = (end-start)
+            total_time_required += time_required
+            self.__print(time_required, total_time_required, running_total, len(trainset.dataset))
+            start = time.time()
+            torch.cuda.empty_cache()
+        return running_loss
 
     def test(self, testset):
         self.network.eval()
         correct = 0
-        total = 0
+        running_total = 0
+        running_loss = 0.0
         with torch.no_grad():
+            start = time.time()
+            total_time_required = 0
             for inputs, targets in testset:
                 inputs = inputs.to(self.device)
-                target = targets.to(self.device)
+                targets = targets.to(self.device)
                 outputs = self.__run(inputs)
+                inputs = inputs.to('cpu')
+                del inputs
+                l = self.loss(outputs, targets)
+                running_loss += l.item()
                 _, predicted = torch.max(outputs.data, 1)
-                total += target.size(0)
-                correct += (predicted == target).sum().item()
-        return total, correct
+                running_total += targets.size(0)
+                correct += (predicted == targets).sum().item()
+                end = time.time()
+                time_required = (end-start)
+                total_time_required += time_required
+                self.__print(time_required, total_time_required, running_total, len(testset.dataset))
+                start = time.time()
+                torch.cuda.empty_cache()
+        return correct, running_loss
 
     def __run(self, inputs):
         inputs = self.__resize(inputs)
-        inputs = torch.cat([inputs[0][0], inputs[0][1]], dim=2).unsqueeze(dim=0)
+        if len(inputs.shape) == 6:  # if two views then concatenated
+            inputs = torch.cat([inputs[0][0], inputs[0][1]], dim=2).unsqueeze(dim=0)
         outputs = self.network(inputs)
         return outputs
 
     def __resize(self, inputs):
-        batch = inputs.shape[0]
-        views = inputs.shape[1]
-        frame = inputs.shape[2]
-        channel = inputs.shape[3]
-        height = inputs.shape[4]
-        width = inputs.shape[5]
-        inputs = inputs.view(batch, views, channel, frame, height, width)
-        return inputs
+        if len(inputs.shape) == 6:
+            return inputs.permute(0, 1, 3, 2, 4, 5)
+        elif  len(inputs.shape) == 5:
+            return inputs.permute(0, 2, 1, 3, 4)
+        else:
+            raise RuntimeError('Shape of the input for CNN3D is wrong. Please check.')
+
+    def __print(self, time_required, total_time_required, total, num_samples):
+        outstr = 'Time required for last sample: {:.2f}sec. Total time: {:.2f}sec.  Total tests: {}/{}'.format(time_required, total_time_required, total, num_samples)
+        sys.stdout.write('\r'+ outstr)
