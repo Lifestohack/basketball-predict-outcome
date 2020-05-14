@@ -4,14 +4,13 @@ from pathlib import Path
 import os
 from PIL import Image
 import torchvision
-from Dataprocess import Preprocess
 import torchvision.transforms.functional as F
 from torchvision.utils import save_image
 import random
 from torch.utils.data import DataLoader
 import copy 
 import cache
-
+import time
 # Classifier
 # Hit = 1
 # Miss = 2
@@ -26,16 +25,26 @@ class Basketball(torch.utils.data.Dataset):
         self.length = 0
         self.curr_sample = None
         self.sample_num = 0
+        self.optical_flow = False
         self.samples = self._find_videos()
         random.shuffle(self.samples)
         self.__cache = cache.Cache()
 
+    def setOpticalflow(self, optical):
+        self.optical_flow = optical
+    
+    def useOpticalflow(self, optical):
+        return self.optical_flow
+
     def __getitem__(self, index):
+        start = time.time()
         self.curr_sample = self.samples[index]
         if self.curr_sample is None:
             print('No testdata on the folder ', index)
         item, isavaiable = self.__cache.getcache(self.curr_sample)
         if isavaiable == True:
+            end = time.time()
+            #print(end-start)
             return item.get('frames'), item.get('label')
         if 'miss' in self.curr_sample:
             label = 0
@@ -43,20 +52,31 @@ class Basketball(torch.utils.data.Dataset):
             label = 1
         else:
             raise ValueError('No hit or miss data found.')
-        label = torch.as_tensor(label)
-        views = os.listdir(self.curr_sample)
+        #label = torch.as_tensor(label)
+        view = None
+        view = self.__get_all_views(self.curr_sample)
+        if self.optical_flow == True:
+            curr_sample_optical_flow = self.curr_sample.replace(self.path, 'optics')
+            optical_flow = self.__get_all_views(curr_sample_optical_flow)
+            view = torch.stack([view, optical_flow])
+        self.__cache.setcache(self.curr_sample, view, label)
+        return view, label
+
+    def __get_all_views(self, path):
+        view = None
+        views = os.listdir(path)
         if 'view1' in views:
             view1path = os.path.join(self.curr_sample, views[0])
             view2path = os.path.join(self.curr_sample, views[1])
             view1 = self.get_view(view1path)
             view2 = self.get_view(view2path)
             view = torch.stack([view1, view2])
-            self.__cache.setcache(self.curr_sample, view, label)
-            return view, label
+            end = time.time()
         else:
             view = self.get_view(self.curr_sample)
-            self.__cache.setcache(self.curr_sample, view, label)
-            return view, label
+            end = time.time()
+        return view
+
 
     def savecombinedcache(self, view, path):
         if not os.path.isdir(path):
@@ -130,7 +150,6 @@ class Basketball(torch.utils.data.Dataset):
         random.shuffle(testobj.samples)
         testobj.length = len(testobj.samples)
         return trainobj, testobj
-        
 
     def _getpath(self, label=None):
         #obsolete
