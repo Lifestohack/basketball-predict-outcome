@@ -32,6 +32,8 @@ class CNN2DLSTMTraintest():
             l = self.loss(outputs, targets)
             l.backward()
             self.optimizer.step()
+            del inputs, outputs
+            torch.cuda.empty_cache()
             running_loss += l.item()
             running_total += targets.size(0)
             end = time.time()
@@ -39,7 +41,6 @@ class CNN2DLSTMTraintest():
             total_time_required += time_required
             self.__print(time_required, total_time_required, running_total, len(trainset.dataset))
             start = time.time()
-            torch.cuda.empty_cache()
         return running_loss
 
     def test(self, testset):
@@ -57,6 +58,8 @@ class CNN2DLSTMTraintest():
                 l = self.loss(outputs, targets)
                 running_loss += l.item()
                 _, predicted = torch.max(outputs.data, 1)
+                del inputs, outputs
+                torch.cuda.empty_cache()
                 running_total_tested += targets.size(0)
                 correct += (predicted == targets).sum().item()
                 end = time.time()
@@ -64,7 +67,6 @@ class CNN2DLSTMTraintest():
                 total_time_required += time_required
                 self.__print(time_required, total_time_required, running_total_tested, len(testset.dataset))
                 start = time.time()
-                torch.cuda.empty_cache()
         return correct, running_loss
 
     def __run(self, inputs, targets):

@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import torch
 import sys
 import time
@@ -29,6 +31,8 @@ class CNN3DTraintest():
             l = self.loss(outputs, targets)
             l.backward()
             self.optimizer.step()
+            del inputs, outputs
+            torch.cuda.empty_cache()
             running_loss += l.item()
             running_total += targets.size(0)
             end = time.time()
@@ -36,7 +40,6 @@ class CNN3DTraintest():
             total_time_required += time_required
             self.__print(time_required, total_time_required, running_total, len(trainset.dataset))
             start = time.time()
-            torch.cuda.empty_cache()
         return running_loss
 
     def test(self, testset):
@@ -44,18 +47,18 @@ class CNN3DTraintest():
         correct = 0
         running_total = 0
         running_loss = 0.0
+        total_time_required = 0
         with torch.no_grad():
             start = time.time()
-            total_time_required = 0
             for inputs, targets in testset:
                 inputs = inputs.to(self.device)
                 targets = targets.to(self.device)
                 outputs = self.__run(inputs)
-                inputs = inputs.to('cpu')
-                del inputs
                 l = self.loss(outputs, targets)
                 running_loss += l.item()
                 _, predicted = torch.max(outputs.data, 1)
+                del inputs, outputs
+                torch.cuda.empty_cache()
                 running_total += targets.size(0)
                 correct += (predicted == targets).sum().item()
                 end = time.time()
@@ -63,7 +66,6 @@ class CNN3DTraintest():
                 total_time_required += time_required
                 self.__print(time_required, total_time_required, running_total, len(testset.dataset))
                 start = time.time()
-                torch.cuda.empty_cache()
         return correct, running_loss
 
     def __run(self, inputs):

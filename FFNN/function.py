@@ -34,12 +34,15 @@ class FFNNTraintest():
             l.backward()
             self.optimizer.step()
             running_loss += l.item()
+            del inputs, output
+            torch.cuda.empty_cache()
             total += targets.size(0)
             end = time.time()
             time_required = (end-start)
             total_time_required += time_required
             self.__print(time_required, total_time_required, total, len(trainset.dataset))
             start = time.time()
+
         return running_loss
 
     def test(self, testset):
@@ -57,6 +60,8 @@ class FFNNTraintest():
                 l = self.loss(outputs, targets)
                 running_loss += l.item()
                 _, predicted = torch.max(outputs.data, 1)
+                del inputs, output
+                torch.cuda.empty_cache()
                 total += targets.size(0)
                 correct += (predicted == targets).sum().item()
                 end = time.time()
