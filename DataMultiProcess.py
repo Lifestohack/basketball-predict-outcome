@@ -1,5 +1,4 @@
 from multiprocessing import Pool
-import Dataprocess
 import os
 import cv2 as cv
 import numpy as np
@@ -15,7 +14,6 @@ class DataMultiProcess():
         self.resize = resize
         self.crop_width = 768
         self.crop_height = 384
-        self.pipeline = False
 
     def get_views(self, data_path):
         go_deeper = True
@@ -94,8 +92,8 @@ class DataMultiProcess():
 
     def resize_rotate(self, img, view1):
         # takes img and checks if it is view1 or view2 and returns resized and rotated image
-        h = int(self.crop_height/8)
-        w = int(self.crop_width/8)
+        h = int(self.crop_height/6)
+        w = int(self.crop_width/6)
         if view1:
             img = cv.resize(img, (w,h))
         else:
@@ -144,7 +142,8 @@ class DataMultiProcess():
         print('Saved:  ', folder)
 
     def pipelines(self, sample):
-
+        if self.create_dense == True:
+            print("Creating dense Images.")
         views = os.listdir(sample)
         views = [os.path.join(sample, view) for view in views]
         
@@ -165,7 +164,8 @@ class DataMultiProcess():
             # remove the background of the previously read view starts here #
         
             # Dense Video starts here #
-            video = self.dense_video(video)
+            if self.create_dense == True:
+                video = self.dense_video(video)
             # Dense Video end here #
 
             # Crop resize and rotate if view 2 starts here # 
@@ -249,11 +249,11 @@ class DataMultiProcess():
         if __name__ == '__main__':
             # Dataset processing
             views = self.get_sample_folder_number(self.dataset_path)
-            self.pipelines(views[0])
+            #self.pipelines(views[0])
             try:
                 # use crop_resize_concatenate for resizing concatenating and saving
                 # use rotate to rotate images
-                pool = Pool(5)                  # Create a multiprocessing Pool.
+                pool = Pool()                  # Create a multiprocessing Pool.
                 pool.map(self.pipelines, views)    # process data_inputs iterable with pool
                 pass
             finally:                            # To make sure processes are closed in the end, even if errors happen
@@ -261,4 +261,4 @@ class DataMultiProcess():
                 #pool.join()
                 pass
 
-DataMultiProcess('orgdata', 'optics\\no_background\\crop_resize_concatenate_96x96', 'optics', True, (96, 96)).start()
+DataMultiProcess('orgdata', 'data\\no_background\\crop_resize_concatenate_128x128', 'optics', True, (128, 128)).start()
