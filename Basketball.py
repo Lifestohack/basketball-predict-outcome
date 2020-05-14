@@ -28,7 +28,10 @@ class Basketball():
         self.num_frames = num_frames
         self.channel = 3
         self.drop_p = 0.4
-        self.out_features = 2                                        # only 2 classifier hit or miss
+        self.out_features = 2                # only 2 classifier hit or miss
+        self.dense_flow = 'optics'  
+        self.train_dense_loader = None
+        self.test_dense_loader = None                                   
         dataset = Dataset.Basketball(self.data, split=split, num_frames = self.num_frames)
         self.trainset, self.testset = dataset.train_test_split(train_size=0.8)
         self.trainset_loader = DataLoader(self.trainset, shuffle=True)
@@ -43,7 +46,7 @@ class Basketball():
         self.config = config['DEFAULT']
         #a = config['trained_network']
 
-    def run(self, module='FFNN', testeverytrain=True, EPOCHS=1, opticalpath=None):
+    def run(self, module='FFNN', testeverytrain=True, EPOCHS=1):
         print("Starting {} using the data in folder {}.".format(module, self.data ) )
         train_test, network = self.__module(module)
         for epoch in range(1, EPOCHS+1):
@@ -51,11 +54,7 @@ class Basketball():
             total_train = len(self.trainset_loader.dataset)
             total_test = len(self.testset_loader.dataset)
             print('Epocs: ', epoch)
-            if module=='OPTICALCONV3D':
-                #running_loss = train_test.train(self.trainset_loader, train_optical_loader)
-                raise NotImplementedError("Opticalconv3d is deactivated.")
-            else:
-                running_loss = train_test.train(self.trainset_loader)
+            running_loss = train_test.train(self.trainset_loader)
             print("\nTrain loss: {:.4f}".format(running_loss/total_train) )
             if  (epoch == EPOCHS) or testeverytrain:
                 if module=='OPTICALCONV3D':
@@ -66,7 +65,6 @@ class Basketball():
                     correct, test_loss = train_test.test(self.testset_loader)
                 print("\nTest loss: {:.4f}, Prediction: ({}/{}) {:.1f} %".format(test_loss/total_test, correct, total_test, 100 * correct/total_test))
             print("-------------------------------------")
-        network.to('cpu')
         print("Saving network...")
         save_path_trained_network = self.config['trained_network']
         ser = Serialize(save_path_trained_network)
@@ -82,7 +80,7 @@ class Basketball():
         elif module=='CNN2DLSTM':
             obj = self.__CNN2DLSTM()
         elif module=='OPTICALCONV3D':
-            #obj, train_optical_loader, test_optical_loader = self.__OPTICALCONV3D(opticalpath)
+            obj = self.__OPTICALCONV3D()
             pass
         else:
             ValueError("Network {} doesnot exists.".format(module))
@@ -125,33 +123,31 @@ class Basketball():
         obj = CNN2DLSTM.function.CNN2DLSTMTraintest(self.device, network, loss, optimizer)
         return obj, network
 
-    def __OPTICALCONV3D(self, opticalpath):
+    def __OPTICALCONV3D(self):
+        self.trainset_loader.dataset.setOpticalflow(True)
+        self.testset_loader.dataset.setOpticalflow(True)
         loss = torch.nn.CrossEntropyLoss().to(self.device)
-        if opticalpath is None:
+        if self.dense_flow is None:
             raise RuntimeError('Please provide the path to opticalflow data')
-        train_optical, test_optical = self.__get_opticalflow_view(self.trainset, self.testset, opticalpath)
-        train_optical_loader = DataLoader(train_optical, shuffle=True)
-        test_optical_loader = DataLoader(test_optical, shuffle=True)
-        cnn3d = OPTICALCONV3D.module.CNN3D(width=2*48, height=48, in_channels=3, out_features=2, drop_p=0.2, fc1out=256, fc2out=128, frames=100) # the shape of input will be Batch x Channel x Depth x Height x Width
-        opticalcnn3d = OPTICALCONV3D.module.CNN3D(width=2*48, height=48, in_channels=3, out_features=2, drop_p=0.2, fc1out=256, fc2out=128, frames=100) # the shape of input will be Batch x Channel x Depth x Height x Width
-        twostream = OPTICALCONV3D.module.TwostreamConv3d()
-        if torch.cuda.device_count() > 1:   #   will use multiple gpu if available
-            cnn3d = nn.DataParallel(cnn3d)
-            opticalcnn3d = nn.DataParallel(opticalcnn3d)
-            twostream = nn.DataParallel(twostream) 
-        cnn3d.to(self.device)
-        opticalcnn3d.to(self.device)
-        twostream.to(self.device)
-        cnn_params = list(cnn3d.parameters()) + list(opticalcnn3d.parameters()) + list(twostream.parameters())
-        optimizer = torch.optim.SGD(cnn_params, lr=0.001, momentum=0.4, nesterov=True)
-        obj = OPTICALCONV3D.function.OPTICALCONV3DTraintest(self.device, cnn3d, opticalcnn3d, twostream, loss, optimizer)
-        return obj, train_optical_loader, test_optical_loader
+        #self.train_dense_loader, self.test_dense_loader = self.__get_opticalflow_view(self.trainset, self.testset, self.dense_flow)
+        #train_optical_loader = DataLoader(self.train_dense_loader, shuffle=True)
+        #test_optical_loader = DataLoader(self.test_dense_loader, shuffle=True)
+        network = OPTICALCONV3D.module.TwostreamCnn3d(width=self.width, height=self.height, in_channels=self.channel, 
+                                            out_features=self.out_features, drop_p=0.4, num_frames=100,
+                                            f_combine_cout=[256, 128], d_conv3d_out=[256, 128]) # the shape of input will be Batch x Channel x Depth x Height x Width
+        if torch.cuda.device_count() > 1:                                                       # will use multiple gpu if available
+            network = nn.DataParallel(network) 
+        network.to(self.device)
+        optimizer = torch.optim.SGD(network.parameters(), lr=0.001, momentum=0.4, nesterov=True)
+        obj = OPTICALCONV3D.function.OPTICALCONV3DTraintest(self.device, network, loss, optimizer)
+        return obj, network
 
     def __get_opticalflow_view(self, trainset, testset, opticalpath):
-        trainsetoptical = copy.deepcopy(trainset)
-        trainsetoptical.samples = [[sample[0].replace(trainsetoptical.path, opticalpath), sample[1]] for sample in trainsetoptical.samples]
-        trainsetoptical.path = opticalpath
-        testsetoptical = copy.deepcopy(testset)
-        testsetoptical.samples = [[sample[0].replace(testsetoptical.path, opticalpath), sample[1]] for sample in testsetoptical.samples]
-        testsetoptical.path = opticalpath
-        return trainsetoptical, testsetoptical
+        # deep copying the obj to new object for the optical flow #
+        trainset_dense = copy.deepcopy(trainset)
+        trainset_dense.path = self.dense_flow
+        trainset_dense.samples = [sample.replace(self.data, self.dense_flow) for sample in trainset_dense.samples]
+        testset_dense = copy.deepcopy(testset)
+        testset_dense.path = opticalpath
+        testset_dense.samples = [sample.replace(self.data, self.dense_flow) for sample in testset_dense.samples]
+        return trainset_dense, testset_dense

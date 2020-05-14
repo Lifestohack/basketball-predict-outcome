@@ -1,89 +1,91 @@
+#!/usr/bin/env python
+
 import torch
+import sys
+import time
 
 class OPTICALCONV3DTraintest():
 
-    def __init__(self, device=None, cnn3d=None, opticalcnn3d=None, twostream=None,loss=None, optimizer=None):
+    def __init__(self, device=None, network=None, loss=None, optimizer=None):
         super().__init__()
-        if cnn3d is None:
+        if network is None:
             raise RuntimeError('Please pass a network as a parameter for the class ', self.__class__.__name__)
         else:
-            self.cnn3d = cnn3d
-        if opticalcnn3d is None:
-            raise RuntimeError('Please pass a network as a parameter for the class ', self.__class__.__name__)
-        else:
-            self.opticalcnn3d = opticalcnn3d
-        if twostream is None:
-            raise RuntimeError('Please pass a network as a parameter for the class ', self.__class__.__name__)
-        else:
-            self.twostream = twostream
+            self.network = network
         self.device = device if device is not None else torch.device('cpu')
         self.loss = loss if loss is not None else torch.nn.CrossEntropyLoss().to(device)
-        cnn_params = list(self.cnn3d.parameters()) + list(self.opticalcnn3d.parameters()) + list(self.twostream.parameters())
-        self.optimizer = optimizer if optimizer is not None else torch.optim.SGD(cnn_params, lr=0.001, momentum=0.4, nesterov=True)
-        #self.cnn3d = self.cnn3d.to(device)
-        #self.opticalcnn3d = self.opticalcnn3d.to(device)
-        #self.twostream = self.twostream.to(device)
+        self.optimizer = optimizer if optimizer is not None else torch.optim.SGD(network.parameters(), lr=0.001, momentum=0.4, nesterov=True)
 
-    def train(self, trainset, trainsetoptical):
-        self.cnn3d.train()
-        self.opticalcnn3d.train()
-        self.twostream.train()
+    def train(self, trainset):
+        self.network.train()
         running_loss = 0.0
-        total = 0
-        
-        for conv3d, optical in zip(trainset, trainsetoptical):
-            conv3d_inputs = conv3d[0].to(self.device)
-            optical_inputs= optical[0].to(self.device)
-            targets = conv3d[1].to(self.device)
-            self.cnn3d.zero_grad()
-            self.opticalcnn3d.zero_grad()
-            self.twostream.zero_grad()
-            outputs = self.__run(conv3d_inputs, optical_inputs)
-            
+        running_total = 0
+        total_time_required = 0
+        start = time.time()
+        for inputs, targets in trainset:
+            inputs = inputs.to(self.device)
+            targets = targets.to(self.device)
+            self.network.zero_grad()
+            outputs = self.__run(inputs)
+            #outputs = outputs.to("cpu")
             # loss, backpropagation
             l = self.loss(outputs, targets)
             l.backward()
             self.optimizer.step()
+            #del inputs, outputs
+            #torch.cuda.empty_cache()
             running_loss += l.item()
-            total += targets.size(0)
-        return total, running_loss
+            running_total += targets.size(0)
+            end = time.time()
+            time_required = (end-start)
+            total_time_required += time_required
+            self.__print(time_required, total_time_required, running_total, len(trainset.dataset))
+            start = time.time()
+        return running_loss
 
-
-    def test(self, testset, testsetoptical):
-        self.cnn3d.eval()
-        self.opticalcnn3d.eval()
-        self.twostream.eval()
+    def test(self, testset):
+        self.network.eval()
         correct = 0
-        total = 0
+        running_total = 0
+        running_loss = 0.0
+        total_time_required = 0
         with torch.no_grad():
-           for conv3d, optical in zip(testset, testsetoptical):
-                conv3d_inputs = conv3d[0].to(self.device)
-                optical_inputs= optical[0].to(self.device)
-                targets = conv3d[1].to(self.device)
-                self.cnn3d.zero_grad()
-                self.opticalcnn3d.zero_grad()
-                self.twostream.zero_grad()
-                outputs = self.__run(conv3d_inputs, optical_inputs)
+            start = time.time()
+            for inputs, targets in testset:
+                inputs = inputs.to(self.device)
+                targets = targets.to(self.device)
+                self.network.zero_grad()
+                outputs = self.__run(inputs)
+                l = self.loss(outputs, targets)
+                running_loss += l.item()
                 _, predicted = torch.max(outputs.data, 1)
-                total += targets.size(0)
+                del inputs, outputs
+                torch.cuda.empty_cache()
+                running_total += targets.size(0)
                 correct += (predicted == targets).sum().item()
-        return total, correct
+                end = time.time()
+                time_required = (end-start)
+                total_time_required += time_required
+                self.__print(time_required, total_time_required, running_total, len(testset.dataset))
+                start = time.time()
+        return running_loss
 
-    def __run(self, conv3d_inputs, optical_inputs):
-        conv3d_inputs = self.__resize(conv3d_inputs)
-        optical_inputs = self.__resize(optical_inputs)
-        cnn3d_out = self.cnn3d(conv3d_inputs)           #conv3d
-        optical_out = self.opticalcnn3d(optical_inputs) #opticalconv3d
-        outputs = self.twostream(cnn3d_out, optical_out)
+    def __run(self, inputs):
+        inputs = self.__resize(inputs)
+        #optical_inputs = self.__resize(optical_inputs)
+        cnn3d_out = self.network.cnn3d(inputs[0][0].unsqueeze(dim=0))           #conv3d
+        optical_out = self.network.cnn3d_optical(inputs[0][1].unsqueeze(dim=0)) #opticalconv3d
+        outputs = self.network.combinetwostream(cnn3d_out, optical_out)         #combine
         return outputs
 
     def __resize(self, inputs):
-        batch = inputs.shape[0]
-        views = inputs.shape[1]
-        frame = inputs.shape[2]
-        channel = inputs.shape[3]
-        height = inputs.shape[4]
-        width = inputs.shape[5]
-        inputs = inputs.view(batch, views, channel, frame, height, width)
-        inputs = torch.cat([inputs[0][0], inputs[0][1]], dim=2).unsqueeze(dim=0)
-        return inputs
+        if len(inputs.shape) == 7:
+            return inputs.permute(0, 1, 2, 4, 3, 5, 6)
+        elif  len(inputs.shape) == 6:
+            return inputs.permute(0, 1, 3, 2, 4, 5)
+        else:
+            raise RuntimeError('Shape of the input for OPTICALCNN3D is wrong. Please check.')
+
+    def __print(self, time_required, total_time_required, total, num_samples):
+        outstr = 'Time required for last sample: {:.2f}sec. Total time: {:.2f}sec.  Total tests: {}/{}'.format(time_required, total_time_required, total, num_samples)
+        sys.stdout.write('\r'+ outstr)
