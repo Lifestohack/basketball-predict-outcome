@@ -2,6 +2,7 @@ import torch
 from datetime import datetime
 import os
 import csv
+import configparser
 
 def save_module(model, modelclass, path):
     if model is None or modelclass is None or path is None:
@@ -36,6 +37,18 @@ def load_results(path):
         for result in reader:
             results.append(result)
     return results
+
+def get_all_results_names():
+    # Config parser
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+    config = config['DEFAULT']
+    save_path_trained_network = config['trained_network']
+    result_folder = config['results']
+    save_path_results = os.path.join(save_path_trained_network, result_folder)
+    result_list = os.listdir(save_path_results)
+    result_list = [os.path.join(save_path_results, result)  for result in result_list]
+    return result_list
 
 def __get_timestamp():
     now = datetime.now()

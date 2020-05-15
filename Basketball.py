@@ -51,6 +51,7 @@ class Basketball():
         print("Starting {} using the data in folder {}.".format(module, self.data ) )
         train_test, network = self.__module(module)
         results = []
+        results.append(['epochs','train','trainloss','test','correct','testloss','filename'])
         for epoch in range(1, EPOCHS+1):
             result = []
             print('Epocs: ', epoch)
