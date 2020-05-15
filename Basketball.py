@@ -14,8 +14,9 @@ import OPTICALCONV3D.module
 import OPTICALCONV3D.function
 import copy
 import torch.nn as nn
-from serialize import Serialize
+import serialize
 import configparser
+import os
 
 class Basketball():
     def __init__(self, data, width=50, height=50, num_frames=100, split='training'):
@@ -49,26 +50,35 @@ class Basketball():
     def run(self, module='FFNN', testeverytrain=True, EPOCHS=1):
         print("Starting {} using the data in folder {}.".format(module, self.data ) )
         train_test, network = self.__module(module)
+        results = []
         for epoch in range(1, EPOCHS+1):
-            running_loss = 0
+            result = []
+            print('Epocs: ', epoch)
             total_train = len(self.trainset_loader.dataset)
             total_test = len(self.testset_loader.dataset)
-            print('Epocs: ', epoch)
-            running_loss = train_test.train(self.trainset_loader)
-            print("\nTrain loss: {:.4f}".format(running_loss/total_train) )
+            running_train_loss = train_test.train(self.trainset_loader)
+            result.append(epoch)
+            result.append(total_train)
+            result.append(running_train_loss/total_train)
+            print("\nTrain loss: {:.4f}".format(running_train_loss/total_train) )
             if  (epoch == EPOCHS) or testeverytrain:
-                if module=='OPTICALCONV3D':
-                #    correct, test_loss = obj.test(self.testset_loader, test_optical_loader)
-                    raise NotImplementedError("Opticalconv3d is deactivated.")
-                    pass
-                else:
-                    correct, test_loss = train_test.test(self.testset_loader)
-                print("\nTest loss: {:.4f}, Prediction: ({}/{}) {:.1f} %".format(test_loss/total_test, correct, total_test, 100 * correct/total_test))
+                correct, running_test_loss = train_test.test(self.testset_loader)
+                print("\nTest loss: {:.4f}, Prediction: ({}/{}) {:.1f} %".format(running_test_loss/total_test, correct, total_test, 100 * correct/total_test))
+                result.append(total_test)
+                result.append(correct)
+                result.append(running_test_loss/total_test)
+                results.append(result)
             print("-------------------------------------")
         print("Saving network...")
         save_path_trained_network = self.config['trained_network']
-        ser = Serialize(save_path_trained_network)
-        ser.save(model=network, modelclass=module)
+        module_saved_path = serialize.save_module(model=network, modelclass=module, path=save_path_trained_network)
+        for result in results:
+            result.append(module_saved_path)
+        # 'Epocs', 'total_train', 'running_loss_train', 'total_test', 'correct', 'test_loss', 'saved network'
+        save_path_results= self.config['results']
+        save_path_results = os.path.join(save_path_trained_network, save_path_results)
+        serialize.save_results(results, save_path_results)
+        #results = serialize.load_results('models\\results\\2020_05_15_12_08_22.csv') # to load the result
         print("Done")
 
     def __module(self, module):
