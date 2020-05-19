@@ -22,7 +22,7 @@ class CNN3D(nn.Module):
 
         self.fc1out = fcout[0] 
         self.fc2out = fcout[1]
-        #self.fc3out = fcout[2]
+        self.fc3out = fcout[2]
         self.ch1, self.ch2, self.ch3, self.ch4 = 32, 64, 128, 256
         self.k1, self.k2, self.k3, self.k4 = (2, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2)      # 3d kernel size
         self.s1, self.s2, self.s3, self.s4 = (2, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2)      # 3d strides
@@ -44,12 +44,13 @@ class CNN3D(nn.Module):
         self.conv4 = nn.Conv3d(in_channels=self.ch3, out_channels=self.ch4, kernel_size=self.k4, stride=self.s4, padding=self.pd4)
         self.bn4 = nn.BatchNorm3d(self.ch4)
         self.relu = nn.ReLU(inplace=True)
-        self.drop = nn.Dropout3d(self.drop_p)
+        self.drop3d = nn.Dropout3d(self.drop_p)
         #self.pool = nn.MaxPool3d(2)
         self.fc1 = nn.Linear(inputlinearvariables, self.fc1out)  # fully connected hidden layer
         self.fc2 = nn.Linear(self.fc1out, self.fc2out)
-        self.fc3 = nn.Linear(self.fc2out, self.out_features)
-        #self.fc4 = nn.Linear(self.fc3out, self.out_features)  # fully connected layer, output = multi-classes
+        self.fc3 = nn.Linear(self.fc2out, self.fc3out)
+        self.fc4 = nn.Linear(self.fc3out, self.out_features)  # fully connected layer, output = multi-classes
+        self.drop = nn.Dropout(self.drop_p)
 
 
     def forward(self, input):
@@ -57,29 +58,31 @@ class CNN3D(nn.Module):
         x = self.conv1(input)
         x = self.bn1(x)
         x = self.relu(x)
-        x = self.drop(x)
+        x = self.drop3d(x)
         # Conv 2
         x = self.conv2(x)
         x = self.bn2(x)
         x = self.relu(x)
-        x = self.drop(x)
+        x = self.drop3d(x)
         # Conv 3
         x = self.conv3(x)
         x = self.bn3(x)
         x = self.relu(x)
-        x = self.drop(x)
+        x = self.drop3d(x)
         # Conv 4
         x = self.conv4(x)
         x = self.bn4(x)
         x = self.relu(x)
-        x = self.drop(x)
+        x = self.drop3d(x)
         # FC 1 and 2
         x = x.view(1, -1)
-        x = F.relu(self.fc1(x))
-        x = F.relu(self.fc2(x))
-        x = F.dropout(x, p=self.drop_p, training=self.training)
+        x = self.fc1(x)
+        x = self.relu(x)
+        x = self.drop(x)
+        x = self.fc2(x)
+        x = self.relu(x)
         x = self.fc3(x)
-        #x = self.fc4(x)
+        x = self.fc4(x)
         return x
 
     def conv3D_output_size(self, img_size, padding, kernel_size, stride):
