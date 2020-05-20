@@ -124,15 +124,14 @@ class Basketball():
     def __CNN2DLSTM(self):
         loss = torch.nn.CrossEntropyLoss().to(self.device)
         #width = 384, height=2*192  2 for two views concatenated
-        network = CNN2DLSTM.module.CNN2DLTSM(width=self.width, height=self.width, encoder_fcout=[2048, 512], 
+        network = CNN2DLSTM.module.CNN2DLTSM(width=self.width, height=self.width, encoder_fcout=[512, 256], 
                                                 num_frames=self.num_frames, drop_p=self.drop_p,
-                                                out_features=self.out_features, decoder_fcin=[128], num_layers=3, hidden_size=256, bidirectional=True)  # Batch x Depth x Channel x Height x Width
+                                                out_features=self.out_features, decoder_fcin=[256], num_layers=3, hidden_size=256, bidirectional=True)  # Batch x Depth x Channel x Height x Width
 
         if torch.cuda.device_count() > 1:                                       #   will use multiple gpu if available
             network = nn.DataParallel(network)
         network.to(self.device)
-        optimizer = torch.optim.SGD(network.parameters(), lr=0.001, momentum=0.4, nesterov=True)
-        #optimizer = torch.optim.Adam(cnn_params, lr=0.0001)
+        optimizer = torch.optim.Adam(network.parameters(), lr=0.0001, weight_decay=0.01)
         obj = CNN2DLSTM.function.CNN2DLSTMTraintest(self.device, network, loss, optimizer)
         return obj, network
 
