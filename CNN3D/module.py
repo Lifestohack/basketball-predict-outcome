@@ -20,9 +20,9 @@ class CNN3D(nn.Module):
             raise RuntimeError('Please provide parameters for CNN3D')
 
 
-        self.fc1out = fcout[0] 
-        self.fc2out = fcout[1]
-        self.fc3out = fcout[2]
+        self.fc1out = self.fcout[0] 
+        self.fc2out = self.fcout[1]
+        self.fc3out = self.fcout[2]
         self.ch1, self.ch2, self.ch3, self.ch4 = 32, 64, 128, 256
         self.k1, self.k2, self.k3, self.k4 = (2, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2)      # 3d kernel size
         self.s1, self.s2, self.s3, self.s4 = (2, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2)      # 3d strides
@@ -81,6 +81,7 @@ class CNN3D(nn.Module):
         x = self.drop(x)
         x = self.fc2(x)
         x = self.relu(x)
+        x = self.drop(x)
         x = self.fc3(x)
         x = self.fc4(x)
         return x
