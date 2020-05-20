@@ -73,12 +73,14 @@ class Basketball():
         print("Saving network...")
         save_path_trained_network = self.config['trained_network']
         module_saved_path = serialize.save_module(model=network, modelclass=module, path=save_path_trained_network)
-        for result in results:
+        for id,result in enumerate(results):
+            if id==0:
+                continue
             result.append(module_saved_path)
         # 'Epocs', 'total_train', 'running_loss_train', 'total_test', 'correct', 'test_loss', 'saved network'
         save_path_results= self.config['results']
         save_path_results = os.path.join(save_path_trained_network, save_path_results)
-        serialize.save_results(results, save_path_results)
+        serialize.save_results(results, modelclass=module, path=save_path_results)
         #results = serialize.load_results('models\\results\\2020_05_15_12_08_22.csv') # to load the result
         print("Done")
 
@@ -111,11 +113,11 @@ class Basketball():
 
     def __CNN3D(self):
         loss = torch.nn.CrossEntropyLoss().to(self.device)
-        network = CNN3D.module.CNN3D(width=self.width, height=self.height, in_channels=self.channel, num_frames=self.num_frames, out_features=self.out_features, drop_p=self.drop_p, fcout=[1024]) # the shape of input will be Batch x Channel x Depth x Height x Width
+        network = CNN3D.module.CNN3D(width=self.width, height=self.height, in_channels=self.channel, num_frames=self.num_frames, out_features=self.out_features, drop_p=self.drop_p, fcout=[512]) # the shape of input will be Batch x Channel x Depth x Height x Width
         if torch.cuda.device_count() > 1:                                   #   will use multiple gpu if available
             network = nn.DataParallel(network) 
         network.to(self.device)
-        optimizer = torch.optim.Adam(network.parameters(), lr=0.00001)
+        optimizer = torch.optim.Adam(network.parameters(), lr=0.00001, weight_decay=0.01)
         obj = CNN3D.function.CNN3DTraintest(self.device, network, loss, optimizer)
         return obj, network
 
