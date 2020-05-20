@@ -68,7 +68,7 @@ class OPTICALCONV3DTraintest():
                 total_time_required += time_required
                 self.__print(time_required, total_time_required, running_total, len(testset.dataset))
                 start = time.time()
-        return running_loss
+        return correct, running_loss
 
     def __run(self, inputs):
         inputs = self.__resize(inputs)

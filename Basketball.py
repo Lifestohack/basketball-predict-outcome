@@ -141,16 +141,13 @@ class Basketball():
         loss = torch.nn.CrossEntropyLoss().to(self.device)
         if self.dense_flow is None:
             raise RuntimeError('Please provide the path to opticalflow data')
-        #self.train_dense_loader, self.test_dense_loader = self.__get_opticalflow_view(self.trainset, self.testset, self.dense_flow)
-        #train_optical_loader = DataLoader(self.train_dense_loader, shuffle=True)
-        #test_optical_loader = DataLoader(self.test_dense_loader, shuffle=True)
         network = OPTICALCONV3D.module.TwostreamCnn3d(width=self.width, height=self.height, in_channels=self.channel, 
-                                            out_features=self.out_features, drop_p=0.4, num_frames=100,
-                                            f_combine_cout=[256, 128], d_conv3d_out=[256, 128]) # the shape of input will be Batch x Channel x Depth x Height x Width
+                                            out_features=self.out_features, drop_p=0.4, num_frames=self.num_frames,
+                                            fc_combo_out=[512]) # the shape of input will be Batch x Channel x Depth x Height x Width
         if torch.cuda.device_count() > 1:                                                       # will use multiple gpu if available
             network = nn.DataParallel(network) 
         network.to(self.device)
-        optimizer = torch.optim.SGD(network.parameters(), lr=0.001, momentum=0.4, nesterov=True)
+        optimizer = torch.optim.Adam(network.parameters(), lr=0.0001, weight_decay=0.01)
         obj = OPTICALCONV3D.function.OPTICALCONV3DTraintest(self.device, network, loss, optimizer)
         return obj, network
 

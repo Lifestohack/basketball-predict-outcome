@@ -6,7 +6,7 @@ import numpy as np
 import torch.nn.functional as F
 
 class TwostreamCnn3d(nn.Module):
-    def __init__(self, width, height, num_frames, in_channels, out_features=2, bias=False, drop_p=0.4, f_combine_cout=[256, 128], d_conv3d_out=[256, 128]):
+    def __init__(self, width, height, num_frames, in_channels, out_features=2, bias=False, drop_p=0.4, fc_combo_out=[1024]):
         super().__init__()
         
         # Conv3d 1 starts here#
@@ -15,12 +15,12 @@ class TwostreamCnn3d(nn.Module):
         self.num_frames = num_frames
         self.in_channels = in_channels
         self.out_features = out_features
-        self.d_conv3d_out = d_conv3d_out 
         self.drop_p = drop_p
-        self.ch1, self.ch2, self.ch3 = 32, 64, 128
-        self.k1, self.k2, self.k3 = (5, 5, 5), (3, 3, 3), (2, 2, 2)      # 3d kernel size
-        self.s1, self.s2, self.s3 = (2, 2, 2), (2, 2, 2), (2, 2, 2)      # 3d strides
-        self.pd1, self.pd2, self.pd3 = (0, 0, 0), (0, 0, 0), (0, 0, 0)   # 3d padding
+        self.ch1, self.ch2, self.ch3 = 16, 32, 64
+        self.k1, self.k2, self.k3, self.k4 = (2, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2)      # 3d kernel size
+        self.s1, self.s2, self.s3, self.s4 = (2, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2)      # 3d strides
+        self.pd1, self.pd2, self.pd3, self.pd4 = (0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)   # 3d padding
+
 
         # compute conv1, conv2, conv3 output shape
         self.conv1_outshape = self.conv3D_output_size((self.num_frames, self.width, self.height), self.pd1, self.k1, self.s1)
@@ -28,84 +28,104 @@ class TwostreamCnn3d(nn.Module):
         self.conv3_outshape = self.conv3D_output_size(self.conv2_outshape, self.pd3, self.k3, self.s3)
         inputlinearvariables = self.ch3 * self.conv3_outshape[0] * self.conv3_outshape[1] * self.conv3_outshape[2]
 
-        self.conv1 = nn.Conv3d(in_channels=self.in_channels, out_channels=self.ch1, kernel_size=self.k1, stride=self.s1, padding=self.pd1)
-        self.bn1 = nn.BatchNorm3d(self.ch1)
-        self.conv2 = nn.Conv3d(in_channels=self.ch1, out_channels=self.ch2, kernel_size=self.k2, stride=self.s2, padding=self.pd2)
-        self.bn2 = nn.BatchNorm3d(self.ch2)
-        self.conv3 = nn.Conv3d(in_channels=self.ch2, out_channels=self.ch3, kernel_size=self.k3, stride=self.s3, padding=self.pd3)
-        self.bn3 = nn.BatchNorm3d(self.ch3)
-        self.relu = nn.ReLU(inplace=True)
-        self.drop = nn.Dropout3d(self.drop_p)
+        self.conv1 = nn.Sequential(
+            nn.Conv3d(in_channels=self.in_channels, out_channels=self.ch1, kernel_size=self.k1, stride=self.s1, padding=self.pd1),
+            nn.BatchNorm3d(self.ch1),
+            nn.ReLU(inplace=True),
+            nn.Dropout3d(self.drop_p)
+        )
+
+        self.conv2 = nn.Sequential(
+            nn.Conv3d(in_channels=self.ch1, out_channels=self.ch2, kernel_size=self.k2, stride=self.s2, padding=self.pd2),
+            nn.BatchNorm3d(self.ch2),
+            nn.ReLU(inplace=True),
+            nn.Dropout3d(self.drop_p)
+        )
+        
+        self.conv3 = nn.Sequential(
+            nn.Conv3d(in_channels=self.ch2, out_channels=self.ch3, kernel_size=self.k3, stride=self.s3, padding=self.pd3),
+            nn.BatchNorm3d(self.ch3),
+            nn.ReLU(inplace=True),
+            nn.Dropout3d(self.drop_p)
+        )
         # Conv3d 1 end here#
 
         # Conv3d 2 for dense flow starts here #
-        self.conv_optical_1 = nn.Conv3d(in_channels=self.in_channels, out_channels=self.ch1, kernel_size=self.k1, stride=self.s1, padding=self.pd1)
-        self.bn_optical_1 = nn.BatchNorm3d(self.ch1)
-        self.conv_optical_2 = nn.Conv3d(in_channels=self.ch1, out_channels=self.ch2, kernel_size=self.k2, stride=self.s2, padding=self.pd2)
-        self.bn_optical_2 = nn.BatchNorm3d(self.ch2)
-        self.conv_optical_3 = nn.Conv3d(in_channels=self.ch2, out_channels=self.ch3, kernel_size=self.k3, stride=self.s3, padding=self.pd3)
-        self.bn_optical_3 = nn.BatchNorm3d(self.ch3)
-        self.relu_optical = nn.ReLU(inplace=True)
-        self.drop_optical = nn.Dropout3d(self.drop_p)
+        self.conv_optical_1 = nn.Sequential(
+            nn.Conv3d(in_channels=self.in_channels, out_channels=self.ch1, kernel_size=self.k1, stride=self.s1, padding=self.pd1),
+            nn.BatchNorm3d(self.ch1),
+            nn.ReLU(inplace=True),
+            nn.Dropout3d(self.drop_p)
+        )
+        
+        self.conv_optical_2 = nn.Sequential(
+            nn.Conv3d(in_channels=self.ch1, out_channels=self.ch2, kernel_size=self.k2, stride=self.s2, padding=self.pd2),
+            nn.BatchNorm3d(self.ch2),
+            nn.ReLU(inplace=True),
+            nn.Dropout3d(self.drop_p)
+        )
+        
+        self.conv_optical_3 = nn.Sequential(
+            nn.Conv3d(in_channels=self.ch2, out_channels=self.ch3, kernel_size=self.k3, stride=self.s3, padding=self.pd3),
+            nn.BatchNorm3d(self.ch3),
+            nn.ReLU(inplace=True),
+            nn.Dropout3d(self.drop_p)
+        )
         # Conv3d 2 for dense flow end here #
-
+        
         # Adding two stream of data starts here #
-        self.in_features = 633600 # needs to be calculated automatically
+        self.ch4, self.ch5, self.ch6= 128, 256, 512
+        
+        self.conv_combo1 = nn.Sequential(
+            nn.Conv3d(in_channels=self.ch4, out_channels=self.ch5, kernel_size=self.k4, stride=self.s4, padding=self.pd4),
+            nn.BatchNorm3d(self.ch5),
+            nn.ReLU(inplace=True),
+            nn.Dropout3d(self.drop_p)
+        )
+        
+        self.conv_combo2 = nn.Sequential(
+            nn.Conv3d(in_channels=self.ch5, out_channels=self.ch6, kernel_size=self.k4, stride=self.s4, padding=self.pd4),
+            nn.BatchNorm3d(self.ch6),
+            nn.ReLU(inplace=True),
+            nn.Dropout3d(self.drop_p)
+        )
+        
+        self.in_features = 24576    #49152         #512->24576    #256->12288 # needs to be calculated automatically
         self.bias = bias
-        self.f_combine_cout = f_combine_cout 
-
-        self.fc1 = nn.Linear(self.in_features, self.f_combine_cout[0], bias)
-        self.fc2 = nn.Linear(self.f_combine_cout[0], self.f_combine_cout[1], bias)
-        self.fc3 = nn.Linear(self.f_combine_cout[1], self.out_features, bias)
-        self.relu = nn.ReLU(inplace=True)
-        self.drop = nn.Dropout(self.drop_p)
+        self.fc_combo_out = fc_combo_out
+        fc_combo1_out = self.fc_combo_out[0]
+        
+        self.fc_combo1 = nn.Sequential(
+            nn.Linear(in_features=self.in_features, out_features=fc_combo1_out, bias=self.bias),
+            nn.ReLU(inplace=True),
+            nn.Dropout(self.drop_p)
+        )
+        
+        self.fc_combo2 = nn.Sequential(
+            nn.Linear(in_features=self.ch6, out_features=self.out_features, bias=self.bias),
+        )
         # Adding two stream of data ends here #
 
-    def cnn3d(self, input):
-        # Conv 1
-        x = self.conv1(input)
-        x = self.bn1(x)
-        x = self.relu(x)
-        x = self.drop(x)
-        # Conv 2
+    def cnn3d(self, x):
+        x = self.conv1(x)
         x = self.conv2(x)
-        x = self.bn2(x)
-        x = self.relu(x)
-        x = self.drop(x)
-        # Conv 3
         x = self.conv3(x)
-        x = self.bn3(x)
-        x = self.relu(x)
-        x = self.drop(x)
         return x
 
-    def cnn3d_optical(self, input):
-        # Conv 1
-        x = self.conv_optical_1(input)
-        x = self.bn_optical_1(x)
-        x = self.relu_optical(x)
-        x = self.drop_optical(x)
-        # Conv 2
+    def cnn3d_optical(self, x):
+        x = self.conv_optical_1(x)
         x = self.conv_optical_2(x)
-        x = self.bn_optical_2(x)
-        x = self.relu_optical(x)
-        x = self.drop_optical(x)
-        # Conv 3
-        x = self.conv3(x)
-        x = self.bn_optical_3(x)
-        x = self.relu_optical(x)
-        x = self.drop_optical(x)
+        x = self.conv_optical_3(x)
         return x
 
     def combinetwostream(self, cnn3d, optical):
-        x = cnn3d.view(1, -1)
-        y = optical.view(1, -1)
-        inputs = torch.cat([x,y]).view(1,-1)
-        outputs = F.relu(self.fc1(inputs))
-        outputs = F.relu(self.fc2(outputs))
-        outputs = self.drop(outputs)
-        outputs = self.fc3(outputs)
-        return outputs
+        x = torch.cat([cnn3d, optical], dim=1)
+        x = self.conv_combo1(x)
+        x = self.conv_combo2(x)
+        x = x.view(1,-1)
+        x = self.fc_combo1(x)
+        x = self.fc_combo2(x)
+        return x
 
     def conv3D_output_size(self, img_size, padding, kernel_size, stride):
         # compute output shape of conv3D
