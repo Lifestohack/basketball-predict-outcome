@@ -13,7 +13,7 @@ def save_module(model, modelclass, path):
     save_name = modelclass + '_' + timestamp + '.pt'
     save_path = os.path.join(path, save_name)
     torch.save(model, save_path)
-    return timestamp
+    return save_path
 
 def load_module(CLASS, path):
     model = CLASS()
@@ -21,10 +21,10 @@ def load_module(CLASS, path):
     model.eval()
     return model
 
-def save_results(results, path):
+def save_results(results, modelclass, path):
     if not os.path.exists(path):
         os.mkdir(path)
-    save_name = __get_timestamp() + '.csv'
+    save_name = modelclass + '_' + __get_timestamp() + '.csv'
     save_path = os.path.join(path, save_name)
     with open(save_path, 'w', newline='') as f:
         writer = csv.writer(f)
