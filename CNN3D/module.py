@@ -20,9 +20,7 @@ class CNN3D(nn.Module):
             raise RuntimeError('Please provide parameters for CNN3D')
 
 
-        self.fc1out = self.fcout[0] 
-        self.fc2out = self.fcout[1]
-        self.fc3out = self.fcout[2]
+        self.fc1out = fcout[0]
         self.ch1, self.ch2, self.ch3, self.ch4 = 32, 64, 128, 256
         self.k1, self.k2, self.k3, self.k4 = (2, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2)      # 3d kernel size
         self.s1, self.s2, self.s3, self.s4 = (2, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2)      # 3d strides
@@ -47,9 +45,8 @@ class CNN3D(nn.Module):
         self.drop3d = nn.Dropout3d(self.drop_p)
         #self.pool = nn.MaxPool3d(2)
         self.fc1 = nn.Linear(inputlinearvariables, self.fc1out)  # fully connected hidden layer
-        self.fc2 = nn.Linear(self.fc1out, self.fc2out)
-        self.fc3 = nn.Linear(self.fc2out, self.fc3out)
-        self.fc4 = nn.Linear(self.fc3out, self.out_features)  # fully connected layer, output = multi-classes
+        self.fc2 = nn.Linear(self.fc1out, self.fc1out)
+        self.fc3 = nn.Linear(self.fc1out, self.out_features)
         self.drop = nn.Dropout(self.drop_p)
 
 
@@ -83,7 +80,6 @@ class CNN3D(nn.Module):
         x = self.relu(x)
         x = self.drop(x)
         x = self.fc3(x)
-        x = self.fc4(x)
         return x
 
     def conv3D_output_size(self, img_size, padding, kernel_size, stride):
