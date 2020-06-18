@@ -60,7 +60,7 @@ class FFNNTraintest():
                 l = self.loss(outputs, targets)
                 running_loss += l.item()
                 _, predicted = torch.max(outputs.data, 1)
-                del inputs, output
+                del inputs, outputs
                 torch.cuda.empty_cache()
                 total += targets.size(0)
                 correct += (predicted == targets).sum().item()
