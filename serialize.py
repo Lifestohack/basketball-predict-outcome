@@ -54,3 +54,14 @@ def __get_timestamp():
     now = datetime.now()
     timestamp = now.strftime("%Y_%m_%d_%H_%M_%S")
     return timestamp
+
+def exportcsv(dictlist, modelclass, path):
+    if not os.path.exists(path):
+        os.mkdir(path)
+    fname = modelclass + '_' + __get_timestamp() + '.csv'
+    save_path = os.path.join(path, fname)
+    fieldnames = ['id', 'category']
+    with open(save_path, 'w') as f:
+        writer = csv.DictWriter(f, delimiter=',', fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(dictlist)

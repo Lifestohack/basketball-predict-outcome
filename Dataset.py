@@ -40,18 +40,20 @@ class Basketball(torch.utils.data.Dataset):
         start = time.time()
         self.curr_sample = self.samples[index]
         if self.curr_sample is None:
-            print('No testdata on the folder ', index)
+            raise RuntimeError('No testdata on the folder ', index)
         item, isavaiable = self.__cache.getcache(self.curr_sample)
         if isavaiable == True:
             end = time.time()
             #print(end-start)
             return item.get('frames'), item.get('label')
+        label = None       # it is for validation purpose, 2 indicates validation and no label is available
         if 'miss' in self.curr_sample:
             label = 0
         elif 'hit' in self.curr_sample:
             label = 1
         else:
-            raise ValueError('No hit or miss data found.')
+            #raise ValueError('No hit or miss data found.')
+            label = int(os.path.basename(self.curr_sample))
         #label = torch.as_tensor(label)
         view = None
         view = self.__get_all_views(self.curr_sample)
@@ -115,15 +117,8 @@ class Basketball(torch.utils.data.Dataset):
 
     def _find_videos(self):
         samples = []
-        if self.split == 'training':
-            samples = self._getpaths(self.path)
-            #hitsamples = self._getpaths('hit')
-            #misssamples = self._getpaths('miss')
-            #samples = hitsamples + misssamples
-            pass
-        elif self.split == 'validation':
-            validationsamples = self._getpaths()
-            samples = validationsamples
+        samples = self._getpaths(self.path)
+        #samples = [x for x in samples if self.split in x]
         return samples
 
     def train_test_split(self, train_size = 0.8):
@@ -150,6 +145,13 @@ class Basketball(torch.utils.data.Dataset):
         random.shuffle(testobj.samples)
         testobj.length = len(testobj.samples)
         return trainobj, testobj
+
+    def getvalidation(self):
+        validationsamples = [x for x in self.samples if 'validation' in x]
+        self.samples = validationsamples
+        self.length = len(validationsamples)
+        return self
+
 
     def _getpath(self, label=None):
         #obsolete
