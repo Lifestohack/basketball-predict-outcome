@@ -15,27 +15,24 @@ class CNN3DTraintest():
         self.device = device if device is not None else torch.device('cpu')
         self.loss = loss if loss is not None else torch.nn.CrossEntropyLoss().to(device)
         self.optimizer = optimizer if optimizer is not None else torch.optim.SGD(network.parameters(), lr=0.001, momentum=0.4, nesterov=True)
-        #network = network.to(device)
 
     def train(self, trainset):
         self.network.train()
         running_loss = 0.0
         running_total = 0
-        total_time_required = 0
+        total_time_required = 0.0
         start = time.time()
         for inputs, targets in trainset:
             inputs = inputs.to(self.device)
             targets = targets.to(self.device)
-            #print("target ", targets.item())
             self.network.zero_grad()
             outputs = self.__run(inputs)
-            #print("result ", torch.argmax(outputs).item())
             l = self.loss(outputs, targets)
             l.backward()
             self.optimizer.step()
+            running_loss += l.item()
             del inputs, outputs
             torch.cuda.empty_cache()
-            running_loss += l.item()
             running_total += targets.size(0)
             end = time.time()
             time_required = (end-start)
@@ -49,7 +46,7 @@ class CNN3DTraintest():
         correct = 0
         running_total = 0
         running_loss = 0.0
-        total_time_required = 0
+        total_time_required = 0.0
         with torch.no_grad():
             start = time.time()
             for inputs, targets in testset:
@@ -62,9 +59,7 @@ class CNN3DTraintest():
                 del inputs, outputs
                 torch.cuda.empty_cache()
                 running_total += targets.size(0)
-                #print(predicted.item())
-                #print(targets.item())
-                correct += (targets == targets).sum().item()
+                correct += (predicted == targets).sum().item()
                 end = time.time()
                 time_required = (end-start)
                 total_time_required += time_required
