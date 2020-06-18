@@ -34,7 +34,7 @@ class FFNNTraintest():
             l.backward()
             self.optimizer.step()
             running_loss += l.item()
-            del inputs, output
+            del inputs, outputs
             torch.cuda.empty_cache()
             total += targets.size(0)
             end = time.time()
@@ -71,6 +71,29 @@ class FFNNTraintest():
                 start = time.time()
         return correct, running_loss
     
+    def predict(self, validationset):
+        prediction = []
+        self.network.eval()
+        with torch.no_grad():
+            for inputs, sample in validationset:
+                dictpred = {}
+                inputs = inputs.to(self.device)
+                outputs = self.__run(inputs)
+                predicted = torch.argmax(outputs.data, 1)
+                predicted = predicted.item()
+                sample = sample.item()
+                if predicted == 0:
+                    category = 'm'
+                elif predicted == 1:
+                    category = 'h'
+                else:
+                    raise ValueError()
+                print("Id: {} Category:{}".format(sample, category))
+                dictpred['id'] = sample
+                dictpred['category'] = category
+                prediction.append(dictpred)
+        return prediction
+
     def __run(self, inputs):
         inputs = self._resize(inputs)
         outputs = self.network(inputs)
