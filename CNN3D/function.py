@@ -26,8 +26,10 @@ class CNN3DTraintest():
         for inputs, targets in trainset:
             inputs = inputs.to(self.device)
             targets = targets.to(self.device)
+            #print("target ", targets.item())
             self.network.zero_grad()
             outputs = self.__run(inputs)
+            #print("result ", torch.argmax(outputs).item())
             l = self.loss(outputs, targets)
             l.backward()
             self.optimizer.step()
@@ -60,13 +62,38 @@ class CNN3DTraintest():
                 del inputs, outputs
                 torch.cuda.empty_cache()
                 running_total += targets.size(0)
-                correct += (predicted == targets).sum().item()
+                #print(predicted.item())
+                #print(targets.item())
+                correct += (targets == targets).sum().item()
                 end = time.time()
                 time_required = (end-start)
                 total_time_required += time_required
                 self.__print(time_required, total_time_required, running_total, len(testset.dataset))
                 start = time.time()
         return correct, running_loss
+
+    def predict(self, validationset):
+        prediction = []
+        self.network.eval()
+        with torch.no_grad():
+            for inputs, sample in validationset:
+                dictpred = {}
+                inputs = inputs.to(self.device)
+                outputs = self.__run(inputs)
+                predicted = torch.argmax(outputs.data, 1)
+                predicted = predicted.item()
+                sample = sample.item()
+                if predicted == 0:
+                    category = 'm'
+                elif predicted == 1:
+                    category = 'h'
+                else:
+                    raise ValueError()
+                print("Id: {} Category:{}".format(sample, category))
+                dictpred['id'] = sample
+                dictpred['category'] = category
+                prediction.append(dictpred)
+        return prediction
 
     def __run(self, inputs):
         inputs = self.__resize(inputs)
