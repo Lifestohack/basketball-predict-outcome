@@ -65,3 +65,4 @@ def exportcsv(dictlist, modelclass, path):
         writer = csv.DictWriter(f, delimiter=',', fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(dictlist)
+    return save_path

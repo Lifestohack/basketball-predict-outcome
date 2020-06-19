@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import random
 import torch
 import torchvision
@@ -17,6 +19,7 @@ import torch.nn as nn
 import serialize
 import configparser
 import os
+import validation
 
 class Basketball():
     def __init__(self, data, width=50, height=50, num_frames=100, split='training'):
@@ -185,7 +188,11 @@ class Basketball():
         prediction = train_validate.predict(self.validation_loader)
         save_path_trained_network = self.config['trained_network']
         save_path_prediction = self.config['predictions']
-        serialize.exportcsv(prediction, modelclass=module, path=os.path.join(save_path_trained_network, save_path_prediction))
+        validationpath = serialize.exportcsv(prediction, modelclass=module, path=os.path.join(save_path_trained_network, save_path_prediction))
         print("Saving network...")
         module_saved_path = serialize.save_module(model=network, modelclass=module, path=save_path_trained_network)
         print("Done")
+        print("Validating...")
+        validation.validate(validationpath)
+        print("Done")
+
