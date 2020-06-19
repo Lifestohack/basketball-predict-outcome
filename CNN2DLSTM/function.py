@@ -27,7 +27,7 @@ class CNN2DLSTMTraintest():
             inputs = inputs.to(self.device)
             targets = targets.to(self.device)
             self.network.zero_grad()
-            outputs = self.__run(inputs, targets)
+            outputs = self.__run(inputs)
             #loss, backpropagation
             l = self.loss(outputs, targets)
             l.backward()
@@ -54,7 +54,7 @@ class CNN2DLSTMTraintest():
             for inputs, targets in testset:
                 inputs = inputs.to(self.device)
                 targets = targets.to(self.device)
-                outputs = self.__run(inputs, targets)
+                outputs = self.__run(inputs)
                 l = self.loss(outputs, targets)
                 running_loss += l.item()
                 _, predicted = torch.max(outputs.data, 1)
@@ -69,7 +69,29 @@ class CNN2DLSTMTraintest():
                 start = time.time()
         return correct, running_loss
 
-    def __run(self, inputs, targets):
+    def predict(self, validationset):
+        prediction = []
+        self.network.eval()
+        with torch.no_grad():
+            for inputs, sample in validationset:
+                dictpred = {}
+                inputs = inputs.to(self.device)
+                outputs = self.__run(inputs)
+                predicted = torch.argmax(outputs.data, 1)
+                predicted = predicted.item()
+                sample = sample.item()
+                if predicted == 0:
+                    category = 'm'
+                elif predicted == 1:
+                    category = 'h'
+                else:
+                    raise ValueError()
+                dictpred['id'] = sample
+                dictpred['category'] = category
+                prediction.append(dictpred)
+        return prediction
+
+    def __run(self, inputs):
         inputs = self.__resize(inputs)
         if len(inputs.shape) == 6:                  # if two views then concatenate them
             inputs = torch.cat([inputs[0][0], inputs[0][1]], dim=2).unsqueeze(dim=0) #concatenate two view
