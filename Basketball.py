@@ -73,7 +73,6 @@ class Basketball():
             obj = self.__CNN2DLSTM()
         elif module=='OPTICALCONV3D':
             obj = self.__OPTICALCONV3D()
-            pass
         else:
             ValueError("Network {} doesnot exists.".format(module))
         return obj
@@ -116,7 +115,10 @@ class Basketball():
 
     def __OPTICALCONV3D(self):
         self.trainset_loader.dataset.setOpticalflow(True)
-        self.testset_loader.dataset.setOpticalflow(True)
+        if self.split == 'training':
+            self.testset_loader.dataset.setOpticalflow(True)
+        elif self.split == 'validation':
+            self.validation_loader.dataset.setOpticalflow(True)
         loss = torch.nn.CrossEntropyLoss().to(self.device)
         if self.dense_flow is None:
             raise RuntimeError('Please provide the path to opticalflow data')
