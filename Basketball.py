@@ -6,8 +6,6 @@ import torchvision
 import Dataset
 from torch.utils.data import DataLoader
 from PIL import Image
-import FFNN.module 
-import FFNN.function
 import copy
 import torch.nn as nn
 import serialize
@@ -166,16 +164,19 @@ class Basketball():
                 result.append(running_test_loss/total_test)
                 results.append(result)
             print("-------------------------------------")
-        print("Saving network...")
-        save_path_trained_network = self.config['trained_network']
-        module_saved_path = serialize.save_module(model=network, modelclass=module, path=save_path_trained_network)
-        for id,result in enumerate(results):
-            if id==0:
-                continue
-            result.append(module_saved_path)
+        #print("Saving network...")
+        save_path = self.config['output']
+        #save_path_network = self.config['trained_network']
+        #save_path_trained_network = os.path.join(save_path, save_path_network)
+        #module_saved_path = serialize.save_module(model=network, modelclass=module, path=save_path_trained_network)
+        #for id,result in enumerate(results):
+        #    if id==0:
+        #        continue
+        #    result.append(module_saved_path)
         # 'Epocs', 'total_train', 'running_loss_train', 'total_test', 'correct', 'test_loss', 'saved network'
+        print("Saving Results...")
         save_path_results= self.config['results']
-        save_path_results = os.path.join(save_path_trained_network, save_path_results)
+        save_path_results = os.path.join(save_path, save_path_results)
         serialize.save_results(results, modelclass=module, path=save_path_results)
         #results = serialize.load_results('models\\results\\2020_05_15_12_08_22.csv') # to load the result
         print("Done")
@@ -189,10 +190,15 @@ class Basketball():
             print("\n")
             print("-------------------------------------")
         prediction = train_validate.predict(self.validation_loader)
-        save_path_trained_network = self.config['trained_network']
+        save_path = self.config['output']
+        print("Saving Validation results...")
         save_path_prediction = self.config['predictions']
-        validationpath = serialize.exportcsv(prediction, modelclass=module, path=os.path.join(save_path_trained_network, save_path_prediction))
+        save_path_prediction_result = os.path.join(save_path, save_path_prediction)
+        validationpath = serialize.exportcsv(prediction, modelclass=module, path=save_path_prediction_result)
+        print("Done")
         print("Saving network...")
+        save_path_network = self.config['trained_network']
+        save_path_trained_network = os.path.join(save_path, save_path_network)
         module_saved_path = serialize.save_module(model=network, modelclass=module, path=save_path_trained_network)
         print("Done")
         print("Validating...")

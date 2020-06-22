@@ -8,7 +8,7 @@ def save_module(model, modelclass, path):
     if model is None or modelclass is None or path is None:
         raise RuntimeError("model, class name or path can not be empty")
     if not os.path.exists(path):
-        os.mkdir(path)
+        os.makedirs(path)
     timestamp = __get_timestamp()
     save_name = modelclass + '_' + timestamp + '.pt'
     save_path = os.path.join(path, save_name)
@@ -23,7 +23,7 @@ def load_module(CLASS, path):
 
 def save_results(results, modelclass, path):
     if not os.path.exists(path):
-        os.mkdir(path)
+        os.makedirs(path)
     save_name = modelclass + '_' + __get_timestamp() + '.csv'
     save_path = os.path.join(path, save_name)
     with open(save_path, 'w', newline='') as f:
@@ -57,7 +57,7 @@ def __get_timestamp():
 
 def exportcsv(dictlist, modelclass, path):
     if not os.path.exists(path):
-        os.mkdir(path)
+        os.makedirs(path)
     fname = modelclass + '_' + __get_timestamp() + '.csv'
     save_path = os.path.join(path, fname)
     fieldnames = ['id', 'category']
