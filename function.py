@@ -6,12 +6,13 @@ import time
 
 class Traintest():
 
-    def __init__(self, device=None, network=None, loss=None, optimizer=None):
+    def __init__(self, module, device=None, network=None, loss=None, optimizer=None):
         super().__init__()
         if network is None:
             raise RuntimeError('Please pass a network as a parameter for the class ', self.__class__.__name__)
         else:
             self.network = network
+        self.module = module
         self.device = device if device is not None else torch.device('cpu')
         self.loss = loss if loss is not None else torch.nn.CrossEntropyLoss().to(device)
         self.optimizer = optimizer if optimizer is not None else torch.optim.SGD(network.parameters(), lr=0.001, momentum=0.4, nesterov=True)
@@ -94,12 +95,27 @@ class Traintest():
         return prediction
 
     def __resize(self, inputs):
-        if len(inputs.shape) == 7:
-            return inputs.permute(0, 1, 2, 4, 3, 5, 6)
-        elif  len(inputs.shape) == 6:
-            return inputs.permute(0, 1, 3, 2, 4, 5)
+        outputs = None
+        if self.module=='FFNN':
+            pass
+        elif self.module=='CNN3D':
+            pass
+        elif self.module=='CNN2DLSTM':
+            # if two views then concatenate them. Need to check if this is also available for other networks
+            if len(inputs.shape) == 6:                  
+                outputs = torch.cat([inputs[0][0], inputs[0][1]], dim=2).unsqueeze(dim=0) #concatenate two view
+            else:
+                outputs = inputs
+        elif self.module=='OPTICALCONV3D':
+            if len(inputs.shape) == 7:
+                outputs = inputs.permute(0, 1, 2, 4, 3, 5, 6)
+            elif  len(inputs.shape) == 6:
+                outputs = inputs.permute(0, 1, 3, 2, 4, 5)
+            else:
+                raise ValueError('Shape of the input for OPTICALCNN3D is wrong. Please check.')
         else:
-            raise RuntimeError('Shape of the input for OPTICALCNN3D is wrong. Please check.')
+            raise ValueError("Network {} doesnot exists.".format(module))
+        return outputs
 
     def __print(self, time_required, total_time_required, total, num_samples):
         outstr = 'Time required for last sample: {:.2f}sec. Total time: {:.2f}sec.  Total tests: {}/{}'.format(time_required, total_time_required, total, num_samples)

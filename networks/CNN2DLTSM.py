@@ -107,7 +107,12 @@ class CNN2DLTSM(nn.Module):
 
         # Decoder LSTM ends #
 
-    def encoder(self, x):
+    def forward(self, inputs):
+        outputs = self.__encoder(inputs)      # Encoder
+        outputs = self.__decoder(outputs)     # Decoder
+        return outputs
+
+    def __encoder(self, x):
         out = []
         for y in x[0]:
             # CNNs
@@ -122,7 +127,7 @@ class CNN2DLTSM(nn.Module):
         out = torch.stack(out, dim=0).transpose_(0, 1)
         return out
 
-    def decoder(self, x):
+    def __decoder(self, x):
         # RNN module weights are not part of single contiguous chunk of memory. This means they need to be compacted at every call, 
         # possibly greately increasing memory usage. 
         # To compact weights again call flatten_parameters().
