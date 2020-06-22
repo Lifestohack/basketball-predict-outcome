@@ -99,7 +99,15 @@ class Traintest():
         if self.module=='FFNN':
             pass
         elif self.module=='CNN3D':
-            pass
+            # if two views then concatenated
+            if len(inputs.shape) == 6: 
+                inputs = torch.cat([inputs[0][0], inputs[0][1]], dim=2).unsqueeze(dim=0)
+            if len(inputs.shape) == 6:
+                outputs = inputs.permute(0, 1, 3, 2, 4, 5)
+            elif  len(inputs.shape) == 5:
+                outputs = inputs.permute(0, 2, 1, 3, 4)
+            else:
+                raise RuntimeError('Shape of the input for CNN3D is wrong. Please check.')
         elif self.module=='CNN2DLSTM':
             # if two views then concatenate them. Need to check if this is also available for other networks
             if len(inputs.shape) == 6:                  
@@ -112,9 +120,9 @@ class Traintest():
             elif  len(inputs.shape) == 6:
                 outputs = inputs.permute(0, 1, 3, 2, 4, 5)
             else:
-                raise ValueError('Shape of the input for OPTICALCNN3D is wrong. Please check.')
+                raise RuntimeError('Shape of the input for OPTICALCNN3D is wrong. Please check.')
         else:
-            raise ValueError("Network {} doesnot exists.".format(module))
+            raise RuntimeError("Network {} doesnot exists.".format(module))
         return outputs
 
     def __print(self, time_required, total_time_required, total, num_samples):

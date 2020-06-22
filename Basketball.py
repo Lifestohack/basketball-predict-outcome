@@ -6,8 +6,6 @@ import torchvision
 import Dataset
 from torch.utils.data import DataLoader
 from PIL import Image
-import CNN3D.module
-import CNN3D.function 
 import FFNN.module 
 import FFNN.function
 import copy
@@ -93,12 +91,12 @@ class Basketball():
 
     def __CNN3D(self):
         loss = torch.nn.CrossEntropyLoss().to(self.device)
-        network = CNN3D.module.CNN3D(width=self.width, height=self.height, in_channels=self.channel, num_frames=self.num_frames, out_features=self.out_features, drop_p=self.drop_p, fcout=[512]) # the shape of input will be Batch x Channel x Depth x Height x Width
+        network = CNN3D(width=self.width, height=self.height, in_channels=self.channel, num_frames=self.num_frames, out_features=self.out_features, drop_p=self.drop_p, fcout=[512]) # the shape of input will be Batch x Channel x Depth x Height x Width
         if torch.cuda.device_count() > 1:                                   #   will use multiple gpu if available
             network = nn.DataParallel(network) 
         network.to(self.device)
         optimizer = torch.optim.Adam(network.parameters(), lr=0.00001, weight_decay=0.01)
-        obj = CNN3D.function.CNN3DTraintest(self.device, network, loss, optimizer)
+        obj = Traintest(self.module, self.device, network, loss, optimizer)
         return obj, network
 
     def __CNN2DLSTM(self):
