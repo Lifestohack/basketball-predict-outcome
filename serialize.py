@@ -43,9 +43,9 @@ def get_all_results_names():
     config = configparser.ConfigParser()
     config.read('config.ini')
     config = config['DEFAULT']
-    save_path_trained_network = config['trained_network']
+    save_path = config['output']
     result_folder = config['results']
-    save_path_results = os.path.join(save_path_trained_network, result_folder)
+    save_path_results = os.path.join(save_path, result_folder)
     result_list = os.listdir(save_path_results)
     result_list = [os.path.join(save_path_results, result)  for result in result_list]
     return result_list
