@@ -97,7 +97,7 @@ class Traintest():
     def __resize(self, inputs):
         outputs = None
         if self.module=='FFNN':
-            pass
+            outputs = inputs.reshape(1,-1)
         elif self.module=='CNN3D':
             # if two views then concatenated
             if len(inputs.shape) == 6: 

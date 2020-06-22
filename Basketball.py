@@ -81,12 +81,12 @@ class Basketball():
         loss = torch.nn.CrossEntropyLoss().to(self.device)
         #in_features = self.num_frames * self.channel * self.height * self.width
         in_features = self.trainset_loader.dataset[0][0].numel()
-        network = FFNN.module.FFNN(in_features=in_features, out_features=self.out_features, drop_p=0.4, fcout = [256, 128])
+        network = FFNN(in_features=in_features, out_features=self.out_features, drop_p=0.4, fcout = [256, 128])
         if torch.cuda.device_count() > 1:                       # will use multiple gpu if available
             network = nn.DataParallel(network) 
         network.to(self.device)
         optimizer = torch.optim.SGD(network.parameters(), lr=0.001, momentum=0.4, nesterov=True)
-        obj = FFNN.function.FFNNTraintest(self.device, network, loss, optimizer)
+        obj = Traintest(self.module, self.device, network, loss, optimizer)
         return obj, network
 
     def __CNN3D(self):
