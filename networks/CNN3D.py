@@ -19,7 +19,6 @@ class CNN3D(nn.Module):
         if self.width is None or self.height is None or self.num_frames is None  or self.in_channels is None or self.out_features is None or self.fcout is None or self.drop_p is None:
             raise RuntimeError('Please provide parameters for CNN3D')
 
-
         self.fc1out = fcout[0]
         self.ch1, self.ch2, self.ch3, self.ch4 = 32, 64, 128, 256
         self.k1, self.k2, self.k3, self.k4 = (2, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2)      # 3d kernel size
@@ -27,10 +26,10 @@ class CNN3D(nn.Module):
         self.pd1, self.pd2, self.pd3, self.pd4 = (0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)   # 3d padding
 
         # compute conv1, conv2, conv3 output shape
-        self.conv1_outshape = self.conv3D_output_size((self.num_frames, self.width, self.height), self.pd1, self.k1, self.s1)
-        self.conv2_outshape = self.conv3D_output_size(self.conv1_outshape, self.pd2, self.k2, self.s2)
-        self.conv3_outshape = self.conv3D_output_size(self.conv2_outshape, self.pd3, self.k3, self.s3)
-        self.conv4_outshape = self.conv3D_output_size(self.conv3_outshape, self.pd4, self.k4, self.s4)
+        self.conv1_outshape = self.__conv3D_output_size((self.num_frames, self.width, self.height), self.pd1, self.k1, self.s1)
+        self.conv2_outshape = self.__conv3D_output_size(self.conv1_outshape, self.pd2, self.k2, self.s2)
+        self.conv3_outshape = self.__conv3D_output_size(self.conv2_outshape, self.pd3, self.k3, self.s3)
+        self.conv4_outshape = self.__conv3D_output_size(self.conv3_outshape, self.pd4, self.k4, self.s4)
         inputlinearvariables = self.ch4 * self.conv4_outshape[0] * self.conv4_outshape[1] * self.conv4_outshape[2] #3393024
 
         self.conv1 = nn.Conv3d(in_channels=3, out_channels=self.ch1, kernel_size=self.k1, stride=self.s1, padding=self.pd1)
@@ -48,7 +47,6 @@ class CNN3D(nn.Module):
         self.fc2 = nn.Linear(self.fc1out, self.fc1out)
         self.fc3 = nn.Linear(self.fc1out, self.out_features)
         self.drop = nn.Dropout(self.drop_p)
-
 
     def forward(self, input):
         # Conv 1
@@ -82,7 +80,7 @@ class CNN3D(nn.Module):
         x = self.fc3(x)
         return x
 
-    def conv3D_output_size(self, img_size, padding, kernel_size, stride):
+    def __conv3D_output_size(self, img_size, padding, kernel_size, stride):
         # compute output shape of conv3D
         outshape = (np.floor((img_size[0] + 2 * padding[0] - (kernel_size[0] - 1) - 1) / stride[0] + 1).astype(int),
                     np.floor((img_size[1] + 2 * padding[1] - (kernel_size[1] - 1) - 1) / stride[1] + 1).astype(int),
