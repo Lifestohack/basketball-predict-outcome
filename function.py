@@ -4,7 +4,7 @@ import torch
 import sys
 import time
 
-class OPTICALCONV3DTraintest():
+class Traintest():
 
     def __init__(self, device=None, network=None, loss=None, optimizer=None):
         super().__init__()
@@ -26,14 +26,13 @@ class OPTICALCONV3DTraintest():
             inputs = inputs.to(self.device)
             targets = targets.to(self.device)
             self.network.zero_grad()
-            outputs = self.__run(inputs)
-            #outputs = outputs.to("cpu")
-            # loss, backpropagation
+            inputs = self.__resize(inputs)
+            outputs = self.network.forward(inputs)
             l = self.loss(outputs, targets)
             l.backward()
             self.optimizer.step()
-            #del inputs, outputs
-            #torch.cuda.empty_cache()
+            del inputs, outputs
+            torch.cuda.empty_cache()
             running_loss += l.item()
             running_total += targets.size(0)
             end = time.time()
@@ -55,7 +54,8 @@ class OPTICALCONV3DTraintest():
                 inputs = inputs.to(self.device)
                 targets = targets.to(self.device)
                 self.network.zero_grad()
-                outputs = self.__run(inputs)
+                inputs = self.__resize(inputs)
+                outputs = self.network.forward(inputs)
                 l = self.loss(outputs, targets)
                 running_loss += l.item()
                 _, predicted = torch.max(outputs.data, 1)
@@ -71,13 +71,14 @@ class OPTICALCONV3DTraintest():
         return correct, running_loss
 
     def predict(self, validationset):
-        prediction = []
         self.network.eval()
+        prediction = []
         with torch.no_grad():
             for inputs, sample in validationset:
                 dictpred = {}
                 inputs = inputs.to(self.device)
-                outputs = self.__run(inputs)
+                inputs = self.__resize(inputs)
+                outputs = self.network.forward(inputs)
                 predicted = torch.argmax(outputs.data, 1)
                 predicted = predicted.item()
                 sample = sample.item()
@@ -91,14 +92,6 @@ class OPTICALCONV3DTraintest():
                 dictpred['category'] = category
                 prediction.append(dictpred)
         return prediction
-
-    def __run(self, inputs):
-        inputs = self.__resize(inputs)
-        #optical_inputs = self.__resize(optical_inputs)
-        cnn3d_out = self.network.cnn3d(inputs[0][0].unsqueeze(dim=0))           #conv3d
-        optical_out = self.network.cnn3d_optical(inputs[0][1].unsqueeze(dim=0)) #opticalconv3d
-        outputs = self.network.combinetwostream(cnn3d_out, optical_out)         #combine
-        return outputs
 
     def __resize(self, inputs):
         if len(inputs.shape) == 7:

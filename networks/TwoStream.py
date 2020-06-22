@@ -5,7 +5,7 @@ import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
 
-class TwostreamCnn3d(nn.Module):
+class TwoStream(nn.Module):
     def __init__(self, width, height, num_frames, in_channels, out_features=2, bias=False, drop_p=0.4, fc_combo_out=[1024]):
         super().__init__()
         
@@ -23,9 +23,9 @@ class TwostreamCnn3d(nn.Module):
 
 
         # compute conv1, conv2, conv3 output shape
-        self.conv1_outshape = self.conv3D_output_size((self.num_frames, self.width, self.height), self.pd1, self.k1, self.s1)
-        self.conv2_outshape = self.conv3D_output_size(self.conv1_outshape, self.pd2, self.k2, self.s2)
-        self.conv3_outshape = self.conv3D_output_size(self.conv2_outshape, self.pd3, self.k3, self.s3)
+        self.conv1_outshape = self.__conv3D_output_size((self.num_frames, self.width, self.height), self.pd1, self.k1, self.s1)
+        self.conv2_outshape = self.__conv3D_output_size(self.conv1_outshape, self.pd2, self.k2, self.s2)
+        self.conv3_outshape = self.__conv3D_output_size(self.conv2_outshape, self.pd3, self.k3, self.s3)
         inputlinearvariables = self.ch3 * self.conv3_outshape[0] * self.conv3_outshape[1] * self.conv3_outshape[2]
 
         self.conv1 = nn.Sequential(
@@ -106,19 +106,25 @@ class TwostreamCnn3d(nn.Module):
         )
         # Adding two stream of data ends here #
 
-    def cnn3d(self, x):
+    def forward(self, inputs):
+        cnn3d_out = self.__cnn3d(inputs[0][0].unsqueeze(dim=0))           #conv3d
+        optical_out = self.__cnn3d_optical(inputs[0][1].unsqueeze(dim=0)) #opticalconv3d
+        outputs = self.__combinetwostream(cnn3d_out, optical_out)         #combine
+        return outputs
+
+    def __cnn3d(self, x):
         x = self.conv1(x)
         x = self.conv2(x)
         x = self.conv3(x)
         return x
 
-    def cnn3d_optical(self, x):
+    def __cnn3d_optical(self, x):
         x = self.conv_optical_1(x)
         x = self.conv_optical_2(x)
         x = self.conv_optical_3(x)
         return x
 
-    def combinetwostream(self, cnn3d, optical):
+    def __combinetwostream(self, cnn3d, optical):
         x = torch.cat([cnn3d, optical], dim=1)
         x = self.conv_combo1(x)
         x = self.conv_combo2(x)
@@ -127,7 +133,7 @@ class TwostreamCnn3d(nn.Module):
         x = self.fc_combo2(x)
         return x
 
-    def conv3D_output_size(self, img_size, padding, kernel_size, stride):
+    def __conv3D_output_size(self, img_size, padding, kernel_size, stride):
         # compute output shape of conv3D
         outshape = (np.floor((img_size[0] + 2 * padding[0] - (kernel_size[0] - 1) - 1) / stride[0] + 1).astype(int),
                     np.floor((img_size[1] + 2 * padding[1] - (kernel_size[1] - 1) - 1) / stride[1] + 1).astype(int),
