@@ -10,16 +10,17 @@ import CNN3D.module
 import CNN3D.function 
 import FFNN.module 
 import FFNN.function
-import CNN2DLSTM.module
-import CNN2DLSTM.function
-import OPTICALCONV3D.module
-import OPTICALCONV3D.function
 import copy
 import torch.nn as nn
 import serialize
 import configparser
 import os
 import validation
+from networks.FFNN import FFNN
+from networks.CNN3D import CNN3D
+from networks.CNN2DLTSM import CNN2DLTSM
+from networks.TwoStream import TwoStream
+from function import Traintest
 
 class Basketball():
     def __init__(self, data, width=50, height=50, num_frames=100, split='training'):
@@ -34,9 +35,9 @@ class Basketball():
         self.channel = 3
         self.drop_p = 0.4
         self.out_features = 2                # only 2 classifier hit or miss
-        self.dense_flow = 'optics'  
+        self.dense_flow = 'optics' 
         self.train_dense_loader = None
-        self.test_dense_loader = None                                   
+        self.test_dense_loader = None                                    
         dataset = Dataset.Basketball(self.data, split=self.split, num_frames = self.num_frames)
         if self.split == 'training':
             trainset, testset = dataset.train_test_split(train_size=0.8)
@@ -58,6 +59,7 @@ class Basketball():
         #a = config['trained_network']
 
     def run(self, module='FFNN', testeverytrain=True, EPOCHS=1):
+        self.module = module
         if self.split == 'training':
             self.__runtraining(module, testeverytrain, EPOCHS)
         elif self.split == 'validation':
@@ -102,7 +104,7 @@ class Basketball():
     def __CNN2DLSTM(self):
         loss = torch.nn.CrossEntropyLoss().to(self.device)
         #width = 384, height=2*192  2 for two views concatenated
-        network = CNN2DLSTM.module.CNN2DLTSM(width=self.width, height=self.width, encoder_fcout=[512, 256], 
+        network = CNN2DLTSM(width=self.width, height=self.width, encoder_fcout=[512, 256], 
                                                 num_frames=self.num_frames, drop_p=self.drop_p,
                                                 out_features=self.out_features, decoder_fcin=[256], num_layers=3, hidden_size=256, bidirectional=True)  # Batch x Depth x Channel x Height x Width
 
@@ -110,7 +112,7 @@ class Basketball():
             network = nn.DataParallel(network)
         network.to(self.device)
         optimizer = torch.optim.Adam(network.parameters(), lr=0.0001, weight_decay=0.01)
-        obj = CNN2DLSTM.function.CNN2DLSTMTraintest(self.device, network, loss, optimizer)
+        obj = Traintest(self.module, self.device, network, loss, optimizer)
         return obj, network
 
     def __OPTICALCONV3D(self):
@@ -122,14 +124,15 @@ class Basketball():
         loss = torch.nn.CrossEntropyLoss().to(self.device)
         if self.dense_flow is None:
             raise RuntimeError('Please provide the path to opticalflow data')
-        network = OPTICALCONV3D.module.TwostreamCnn3d(width=self.width, height=self.height, in_channels=self.channel, 
+        network = TwoStream(width=self.width, height=self.height, in_channels=self.channel, 
                                             out_features=self.out_features, drop_p=0.4, num_frames=self.num_frames,
                                             fc_combo_out=[512]) # the shape of input will be Batch x Channel x Depth x Height x Width
         if torch.cuda.device_count() > 1:                                                       # will use multiple gpu if available
             network = nn.DataParallel(network) 
         network.to(self.device)
         optimizer = torch.optim.Adam(network.parameters(), lr=0.0001, weight_decay=0.01)
-        obj = OPTICALCONV3D.function.OPTICALCONV3DTraintest(self.device, network, loss, optimizer)
+        #obj = OPTICALCONV3D.function.OPTICALCONV3DTraintest(self.device, network, loss, optimizer)
+        obj = Traintest(self.module, self.device, network, loss, optimizer)
         return obj, network
 
     def __get_opticalflow_view(self, trainset, testset, opticalpath):
