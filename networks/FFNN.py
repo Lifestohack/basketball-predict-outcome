@@ -21,15 +21,19 @@ class FFNN(nn.Module):
         # Weights are initialized based on Kaiming Initialization.
         # weights = random weights * squarerootof(2/numberoffeature)
         # variance = 2/numberoffeatures
-        self.fc1 = nn.Linear(self.in_features, self.fcout[0], self.bias)
-        self.fc2 = nn.Linear(self.fcout[0], self.fcout[1], self.bias)
-        self.fc3 = nn.Linear(self.fcout[1], self.out_features, self.bias)
-        self.relu = nn.ReLU(inplace=True)
-        self.drop = nn.Dropout(self.drop_p)
+        self.fc1  = nn.Sequential(
+            nn.Linear(self.in_features, self.fcout[0], self.bias),
+            nn.ReLU(inplace=True),
+        )
+        self.fc2  = nn.Sequential(
+            nn.Linear(self.fcout[0], self.fcout[1], self.bias),
+            nn.ReLU(inplace=True),
+            nn.Dropout(self.drop_p)
+        )
+        self.fc3  = nn.Linear(self.fcout[1], self.out_features, self.bias)
 
     def forward(self, x):
-        outputs = F.relu(self.fc1(x))
-        outputs = self.drop(outputs)
-        outputs = F.relu(self.fc2(outputs))
+        outputs = self.fc1(x)
+        outputs = self.fc2(outputs)
         outputs = self.fc3(outputs)
         return outputs
