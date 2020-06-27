@@ -58,7 +58,7 @@ class Basketball(torch.utils.data.Dataset):
         view = None
         view = self.__get_all_views(self.curr_sample)
         if self.optical_flow == True:
-            curr_sample_optical_flow = self.curr_sample.replace(self.path, 'optics')
+            curr_sample_optical_flow = self.curr_sample.replace(self.path, 'dataset/optics')
             optical_flow = self.__get_all_views(curr_sample_optical_flow)
             view = torch.stack([view, optical_flow])
         self.__cache.setcache(self.curr_sample, view, label)
