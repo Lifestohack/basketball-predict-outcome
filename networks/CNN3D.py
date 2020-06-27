@@ -26,55 +26,52 @@ class CNN3D(nn.Module):
         self.pd1, self.pd2, self.pd3, self.pd4 , self.pd5 = (0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)    # 3d padding
 
         # compute conv1, conv2, conv3 output shape
-
-        self.conv1_outshape = self.__conv3D_output_size((self.num_frames, self.width, self.height), self.pd1, self.k1, self.s1)
-        self.conv2_outshape = self.__conv3D_output_size(self.conv1_outshape, self.pd2, self.k2, self.s2)
-        self.conv3_outshape = self.__conv3D_output_size(self.conv2_outshape, self.pd3, self.k3, self.s3)
-        outshape = self.conv3_outshape
-        channel = self.ch3
-        if self.num_frames == 100 or self.num_frames == 55:
-            self.conv4_outshape = self.__conv3D_output_size(self.conv3_outshape, self.pd4, self.k4, self.s4)
-            outshape = self.conv4_outshape
-            channel = self.ch4
-            if self.num_frames == 100:
-                self.conv5_outshape = self.__conv3D_output_size(self.conv4_outshape, self.pd5, self.k5, self.s5)
-                outshape = self.conv5_outshape
-                channel = self.ch5
-        inputlinearvariables = channel * outshape[0] * outshape[1] * outshape[2]
-
         self.conv1 = nn.Sequential(
             nn.Conv3d(in_channels=3, out_channels=self.ch1, kernel_size=self.k1, stride=self.s1, padding=self.pd1),
             nn.BatchNorm3d(self.ch1),
             nn.ReLU(inplace=True)
         )
-
+        self.conv1_outshape = self.__conv3D_output_size((self.num_frames, self.width, self.height), self.pd1, self.k1, self.s1)
+        
         self.conv2 = nn.Sequential(
             nn.Conv3d(in_channels=self.ch1, out_channels=self.ch2, kernel_size=self.k2, stride=self.s2, padding=self.pd2),
             nn.BatchNorm3d(self.ch2),
             nn.ReLU(inplace=True),
             nn.Dropout3d(self.drop_p)
         )
-
+        self.conv2_outshape = self.__conv3D_output_size(self.conv1_outshape, self.pd2, self.k2, self.s2)
+        
         self.conv3 = nn.Sequential(
             nn.Conv3d(in_channels=self.ch2, out_channels=self.ch3, kernel_size=self.k3, stride=self.s3, padding=self.pd3),
             nn.BatchNorm3d(self.ch3),
             nn.ReLU(inplace=True),
             nn.Dropout3d(self.drop_p)
         )
+        self.conv3_outshape = self.__conv3D_output_size(self.conv2_outshape, self.pd3, self.k3, self.s3)
 
-        self.conv4 = nn.Sequential(
-            nn.Conv3d(in_channels=self.ch3, out_channels=self.ch4, kernel_size=self.k4, stride=self.s4, padding=self.pd4),
-            nn.BatchNorm3d(self.ch4),
-            nn.ReLU(inplace=True),
-            nn.Dropout3d(self.drop_p)
-        )
-
-        self.conv5 = nn.Sequential(
-            nn.Conv3d(in_channels=self.ch4, out_channels=self.ch5, kernel_size=self.k5, stride=self.s5, padding=self.pd5),
-            nn.BatchNorm3d(self.ch5),
-            nn.ReLU(inplace=True),
-            nn.Dropout3d(self.drop_p)
-        )
+        outshape = self.conv3_outshape
+        channel = self.ch3
+        if self.num_frames == 100 or self.num_frames == 55:
+            self.conv4 = nn.Sequential(
+                nn.Conv3d(in_channels=self.ch3, out_channels=self.ch4, kernel_size=self.k4, stride=self.s4, padding=self.pd4),
+                nn.BatchNorm3d(self.ch4),
+                nn.ReLU(inplace=True),
+                nn.Dropout3d(self.drop_p)
+            )
+            self.conv4_outshape = self.__conv3D_output_size(self.conv3_outshape, self.pd4, self.k4, self.s4)
+            outshape = self.conv4_outshape
+            channel = self.ch4
+            if self.num_frames == 100:
+                self.conv5 = nn.Sequential(
+                    nn.Conv3d(in_channels=self.ch4, out_channels=self.ch5, kernel_size=self.k5, stride=self.s5, padding=self.pd5),
+                    nn.BatchNorm3d(self.ch5),
+                    nn.ReLU(inplace=True),
+                    nn.Dropout3d(self.drop_p)
+                )
+                self.conv5_outshape = self.__conv3D_output_size(self.conv4_outshape, self.pd5, self.k5, self.s5)
+                outshape = self.conv5_outshape
+                channel = self.ch5
+        inputlinearvariables = channel * outshape[0] * outshape[1] * outshape[2]
 
         self.fc1  = nn.Sequential(
             nn.Linear(inputlinearvariables, self.fc1out),
