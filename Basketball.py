@@ -197,8 +197,6 @@ class Basketball():
         for epoch in range(1, EPOCHS+1):
             print('Epocs: ', epoch)
             train_validate.train(self.trainset_loader)
-            #print("\n")
-            print("-------------------------------------")
         prediction = train_validate.predict(self.validation_loader)
         save_path = self.config['output']
         print("Saving Validation results...")
