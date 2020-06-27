@@ -29,7 +29,7 @@ class Basketball():
         self.num_frames = num_frames
         self.split = split
         self.channel = 3
-        self.drop_p = 0.4
+        self.drop_p = 0.5
         self.out_features = 2                # only 2 classifier hit or miss
         self.dense_flow = 'optics' 
         self.train_dense_loader = None
@@ -75,15 +75,24 @@ class Basketball():
             ValueError("Network {} doesnot exists.".format(module))
         return obj
 
+    def __get_n_params(self, model):
+        pp=0
+        for p in list(model.parameters()):
+            nn=1
+            for s in list(p.size()):
+                nn = nn*s
+            pp += nn
+        return pp
+
     def __FFNN(self):
         loss = torch.nn.CrossEntropyLoss().to(self.device)
         #in_features = self.num_frames * self.channel * self.height * self.width
         in_features = self.trainset_loader.dataset[0][0].numel()
-        network = FFNN(in_features=in_features, out_features=self.out_features, drop_p=0.4, fcout = [256, 128])
+        network = FFNN(in_features=in_features, out_features=self.out_features, drop_p=self.drop_p, fcout = [256, 128])
         if torch.cuda.device_count() > 1:                       # will use multiple gpu if available
             network = nn.DataParallel(network) 
         network.to(self.device)
-        optimizer = torch.optim.SGD(network.parameters(), lr=0.001, momentum=0.4, nesterov=True)
+        optimizer = torch.optim.SGD(network.parameters(), lr=0.0001, momentum=0.4, nesterov=True)
         obj = Traintest(self.module, self.device, network, loss, optimizer)
         return obj, network
 
@@ -93,7 +102,7 @@ class Basketball():
         if torch.cuda.device_count() > 1:                                   #   will use multiple gpu if available
             network = nn.DataParallel(network) 
         network.to(self.device)
-        optimizer = torch.optim.Adam(network.parameters(), lr=0.00001, weight_decay=0.01)
+        optimizer = torch.optim.Adam(network.parameters(), lr=0.0001, weight_decay=0.01)
         obj = Traintest(self.module, self.device, network, loss, optimizer)
         return obj, network
 
@@ -144,6 +153,7 @@ class Basketball():
     def __runtraining(self, module, testeverytrain, EPOCHS):
         print("Starting {} using the data in folder {}.".format(module, self.data ) )
         train_test, network = self.__module(module)
+        num_parameter = self.__get_n_params(network)
         results = []
         results.append(['epochs','train','trainloss','test','correct','testloss'])
         for epoch in range(1, EPOCHS+1):
@@ -187,7 +197,7 @@ class Basketball():
         for epoch in range(1, EPOCHS+1):
             print('Epocs: ', epoch)
             train_validate.train(self.trainset_loader)
-            print("\n")
+            #print("\n")
             print("-------------------------------------")
         prediction = train_validate.predict(self.validation_loader)
         save_path = self.config['output']
@@ -196,11 +206,11 @@ class Basketball():
         save_path_prediction_result = os.path.join(save_path, save_path_prediction)
         validationpath = serialize.exportcsv(prediction, modelclass=module, path=save_path_prediction_result)
         print("Done")
-        print("Saving network...")
-        save_path_network = self.config['trained_network']
-        save_path_trained_network = os.path.join(save_path, save_path_network)
-        module_saved_path = serialize.save_module(model=network, modelclass=module, path=save_path_trained_network)
-        print("Done")
+        # print("Saving network...")
+        # save_path_network = self.config['trained_network']
+        # save_path_trained_network = os.path.join(save_path, save_path_network)
+        # module_saved_path = serialize.save_module(model=network, modelclass=module, path=save_path_trained_network)
+        # print("Done")
         print("Validating...")
         validation.validate(validationpath)
         print("Done")
