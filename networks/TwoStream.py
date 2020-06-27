@@ -6,7 +6,7 @@ import numpy as np
 import torch.nn.functional as F
 
 class TwoStream(nn.Module):
-    def __init__(self, width, height, num_frames, in_channels, out_features=2, bias=False, drop_p=0.4, fc_combo_out=[1024]):
+    def __init__(self, width, height, num_frames, in_channels, out_features=2, bias=False, drop_p=0.4, fc_combo_out=[512]):
         super().__init__()
         
         # Conv3d 1 starts here#
@@ -32,7 +32,6 @@ class TwoStream(nn.Module):
             nn.Conv3d(in_channels=self.in_channels, out_channels=self.ch1, kernel_size=self.k1, stride=self.s1, padding=self.pd1),
             nn.BatchNorm3d(self.ch1),
             nn.ReLU(inplace=True),
-            nn.Dropout3d(self.drop_p)
         )
 
         self.conv2 = nn.Sequential(
@@ -89,8 +88,13 @@ class TwoStream(nn.Module):
             nn.ReLU(inplace=True),
             nn.Dropout3d(self.drop_p)
         )
-        
-        self.in_features = 24576    #49152         #512->24576    #256->12288 # needs to be calculated automatically
+        if self.num_frames == 96:
+            self.in_features = 24576    #49152         #512->24576    #256->12288 # needs to be calculated automatically
+        elif self.num_frames == 55:
+            self.in_features = 8192
+        elif self.num_frames == 30:
+            raise NotImplementedError()
+
         self.bias = bias
         self.fc_combo_out = fc_combo_out
         fc_combo1_out = self.fc_combo_out[0]
@@ -101,9 +105,8 @@ class TwoStream(nn.Module):
             nn.Dropout(self.drop_p)
         )
         
-        self.fc_combo2 = nn.Sequential(
-            nn.Linear(in_features=self.ch6, out_features=self.out_features, bias=self.bias),
-        )
+        self.fc_combo2 = nn.Linear(in_features=self.ch6, out_features=self.out_features, bias=self.bias)
+        
         # Adding two stream of data ends here #
 
     def forward(self, inputs):

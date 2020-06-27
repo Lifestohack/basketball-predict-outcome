@@ -35,33 +35,32 @@ class CNN3D(nn.Module):
         self.conv1 = nn.Sequential(
             nn.Conv3d(in_channels=3, out_channels=self.ch1, kernel_size=self.k1, stride=self.s1, padding=self.pd1),
             nn.BatchNorm3d(self.ch1),
-            nn.ReLU(inplace=True),
-            #nn.Dropout3d(self.drop_p) # no dropout in input layer
+            nn.ReLU(inplace=True)
         )
 
         self.conv2 = nn.Sequential(
             nn.Conv3d(in_channels=self.ch1, out_channels=self.ch2, kernel_size=self.k2, stride=self.s2, padding=self.pd2),
             nn.BatchNorm3d(self.ch2),
             nn.ReLU(inplace=True),
-            nn.Dropout3d(self.drop_p) # no dropout in input layer
+            nn.Dropout3d(self.drop_p)
         )
 
         self.conv3 = nn.Sequential(
             nn.Conv3d(in_channels=self.ch2, out_channels=self.ch3, kernel_size=self.k3, stride=self.s3, padding=self.pd3),
             nn.BatchNorm3d(self.ch3),
             nn.ReLU(inplace=True),
-            nn.Dropout3d(self.drop_p) # no dropout in input layer
+            nn.Dropout3d(self.drop_p)
         )
 
         self.conv4 = nn.Sequential(
             nn.Conv3d(in_channels=self.ch3, out_channels=self.ch4, kernel_size=self.k4, stride=self.s4, padding=self.pd4),
             nn.BatchNorm3d(self.ch4),
             nn.ReLU(inplace=True),
-            nn.Dropout3d(self.drop_p) # no dropout in input layer
+            nn.Dropout3d(self.drop_p)
         )
 
         self.fc1  = nn.Sequential(
-            nn.Linear(inputlinearvariables, self.fc1out),  # fully connected hidden layer
+            nn.Linear(inputlinearvariables, self.fc1out),
             nn.ReLU(inplace=True),
             nn.Dropout(self.drop_p)
         )

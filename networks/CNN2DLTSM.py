@@ -34,9 +34,7 @@ class CNN2DLTSM(nn.Module):
         self.conv1 = nn.Sequential(
             nn.Conv2d(in_channels=3, out_channels=self.ch1, kernel_size=self.k1, stride=self.s1, padding=self.pd1),
             nn.BatchNorm2d(self.ch1),
-            nn.ReLU(),
-            nn.Dropout2d(p=self.drop_p)                      
-            #nn.MaxPool2d(kernel_size=2),
+            nn.ReLU()
         )
         self.conv1_outshape = self.__conv2D_output_size((self.width, self.height), self.pd1, self.k1, self.s1)  # Conv1 output shape
         
@@ -44,8 +42,7 @@ class CNN2DLTSM(nn.Module):
             nn.Conv2d(in_channels=self.ch1, out_channels=self.ch2, kernel_size=self.k2, stride=self.s2, padding=self.pd2),
             nn.BatchNorm2d(self.ch2),
             nn.ReLU(),
-            nn.Dropout2d(p=self.drop_p)   
-            # nn.MaxPool2d(kernel_size=2),
+            nn.Dropout2d(p=self.drop_p)
         )
         self.conv2_outshape = self.__conv2D_output_size(self.conv1_outshape, self.pd2, self.k2, self.s2)
         
@@ -54,7 +51,6 @@ class CNN2DLTSM(nn.Module):
             nn.BatchNorm2d(self.ch3),
             nn.ReLU(),
             nn.Dropout2d(p=self.drop_p)
-            # nn.MaxPool2d(kernel_size=2),
         )
         self.conv3_outshape = self.__conv2D_output_size(self.conv2_outshape, self.pd3, self.k3, self.s3)
         
@@ -63,7 +59,6 @@ class CNN2DLTSM(nn.Module):
             nn.BatchNorm2d(self.ch4),
             nn.ReLU(),
             nn.Dropout2d(p=self.drop_p)
-            # nn.MaxPool2d(kernel_size=2),
         )
         self.conv4_outshape = self.__conv2D_output_size(self.conv3_outshape, self.pd4, self.k4, self.s4)
         
@@ -72,7 +67,6 @@ class CNN2DLTSM(nn.Module):
             nn.BatchNorm2d(self.ch5),
             nn.ReLU(),
             nn.Dropout2d(p=self.drop_p)
-            # nn.MaxPool2d(kernel_size=2),
         )
         self.conv5_outshape = self.__conv2D_output_size(self.conv4_outshape, self.pd5, self.k5, self.s5)
 
