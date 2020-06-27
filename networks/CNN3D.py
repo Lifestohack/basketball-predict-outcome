@@ -20,18 +20,27 @@ class CNN3D(nn.Module):
             raise RuntimeError('Please provide parameters for CNN3D')
 
         self.fc1out = fcout[0]
-        self.ch1, self.ch2, self.ch3, self.ch4, self.ch5 = 32, 64, 128, 256, 512
+        self.ch1, self.ch2, self.ch3, self.ch4, self.ch5 = 16, 32, 64, 128, 256
         self.k1, self.k2, self.k3, self.k4 , self.k5 = (2, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2) , (2, 2, 2)      # 3d kernel size
         self.s1, self.s2, self.s3, self.s4 , self.s5 = (2, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2)       # 3d strides
         self.pd1, self.pd2, self.pd3, self.pd4 , self.pd5 = (0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)    # 3d padding
 
         # compute conv1, conv2, conv3 output shape
+
         self.conv1_outshape = self.__conv3D_output_size((self.num_frames, self.width, self.height), self.pd1, self.k1, self.s1)
         self.conv2_outshape = self.__conv3D_output_size(self.conv1_outshape, self.pd2, self.k2, self.s2)
         self.conv3_outshape = self.__conv3D_output_size(self.conv2_outshape, self.pd3, self.k3, self.s3)
-        self.conv4_outshape = self.__conv3D_output_size(self.conv3_outshape, self.pd4, self.k4, self.s4)
-        self.conv5_outshape = self.__conv3D_output_size(self.conv4_outshape, self.pd5, self.k5, self.s5)
-        inputlinearvariables = self.ch5 * self.conv5_outshape[0] * self.conv5_outshape[1] * self.conv5_outshape[2] #3393024
+        outshape = self.conv3_outshape
+        channel = self.ch3
+        if self.num_frames == 100 or self.num_frames == 55:
+            self.conv4_outshape = self.__conv3D_output_size(self.conv3_outshape, self.pd4, self.k4, self.s4)
+            outshape = self.conv4_outshape
+            channel = self.ch4
+            if self.num_frames == 100:
+                self.conv5_outshape = self.__conv3D_output_size(self.conv4_outshape, self.pd5, self.k5, self.s5)
+                outshape = self.conv5_outshape
+                channel = self.ch5
+        inputlinearvariables = channel * outshape[0] * outshape[1] * outshape[2]
 
         self.conv1 = nn.Sequential(
             nn.Conv3d(in_channels=3, out_channels=self.ch1, kernel_size=self.k1, stride=self.s1, padding=self.pd1),
@@ -83,8 +92,10 @@ class CNN3D(nn.Module):
         x = self.conv1(input)
         x = self.conv2(x)
         x = self.conv3(x)
-        x = self.conv4(x)
-        x = self.conv5(x)
+        if self.num_frames == 100 or self.num_frames == 55:
+            x = self.conv4(x)
+            if self.num_frames == 100:
+                x = self.conv5(x)
         x = x.view(1, -1)
         x = self.fc1(x)
         x = self.fc2(x)
