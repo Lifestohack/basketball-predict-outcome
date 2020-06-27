@@ -14,3 +14,6 @@ __pycache__
 /cropresize
 /cache9
 /models
+/data_backup
+/predictions
+/output
