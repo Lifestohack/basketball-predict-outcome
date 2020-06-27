@@ -3,17 +3,17 @@ import os
 import cv2 as cv
 import numpy as np
 import denseflow
+from PIL import Image
 
 class DataMultiProcess():
-    def __init__(self, dataset_path, save_path, of_save_path, create_dense, resize):
+    def __init__(self, dataset_path, save_path, create_dense, resize):
         super().__init__()
         self.dataset_path = dataset_path
         self.save_path = save_path
-        self.of_save_path = of_save_path
         self.create_dense = create_dense
         self.resize = resize
-        self.crop_width = 768
-        self.crop_height = 384
+        self.crop_width = 792
+        self.crop_height = 396
 
     def get_views(self, data_path):
         go_deeper = True
@@ -92,25 +92,33 @@ class DataMultiProcess():
 
     def resize_rotate(self, img, view1):
         # takes img and checks if it is view1 or view2 and returns resized and rotated image
-        h = int(self.crop_height/6)
-        w = int(self.crop_width/6)
+        #h = int(self.crop_height/3)
+        #w = int(self.crop_width/3)
+        h=self.resize[0]
+        w=self.resize[1]
         if view1:
             img = cv.resize(img, (w,h))
         else:
             img = cv.resize(img, (h,w))
             img = cv.rotate(img, cv.ROTATE_90_CLOCKWISE)
+        #cv.imshow("cropped", img)
+        #cv.waitKey(0)
         return img
 
     def _crop_image(self, img, cropx, cropy, view1):
         y,x,z = img.shape
-        xx = 40
-        yy = 60
+        xx = 35
+        yy = 40
         if not view1:
-            xx = 100
-            yy = - 30
+            xx = 120
+            yy = -60
         startx = x//2-(cropx//2) - xx
         starty = y//2-(cropy//2) - yy
-        return img[starty:starty+cropy,startx:startx+cropx]
+        crop_img = img[starty:starty+cropy,startx:startx+cropx]
+        # if not view1:
+        #cv.imshow("cropped", crop_img)
+        #cv.waitKey(0)
+        return crop_img
 
     def _resize(self, sample):
         frames = os.listdir(sample)
@@ -142,8 +150,6 @@ class DataMultiProcess():
         print('Saved:  ', folder)
 
     def pipelines(self, sample):
-        if self.create_dense == True:
-            print("Creating dense Images.")
         views = os.listdir(sample)
         views = [os.path.join(sample, view) for view in views]
         
@@ -159,15 +165,6 @@ class DataMultiProcess():
                 video.append(img)
             # Read images from view ends here #
 
-            # remove the background of the previously read view starts here #
-            video = self.remove_background(video)
-            # remove the background of the previously read view starts here #
-        
-            # Dense Video starts here #
-            if self.create_dense == True:
-                video = self.dense_video(video)
-            # Dense Video end here #
-
             # Crop resize and rotate if view 2 starts here # 
             view1 = False
             width = self.crop_width                 # view1 is horizontal video
@@ -179,45 +176,60 @@ class DataMultiProcess():
                 width = self.crop_height            # view2 is vertical video so width and height changes
                 height = self.crop_width
             
-            crop_resize_rotate_if_view2_video = []
+            cropped_video = []
             for frame in video:
                 img = self._crop_image(frame, width, height, view1)
-                img = self.resize_rotate(img, view1)        # rotate only if view 2
-                crop_resize_rotate_if_view2_video.append(img)
+                cropped_video.append(img)
             # Crop resize and rotate if view 2 ends here # 
+
+            # remove the background of the previously read view starts here #
+            cropped_video_remove_background = self.remove_background(cropped_video)
+            # remove the background of the previously read view starts here #
+        
+            # Dense Video starts here #
+            if self.create_dense == True:
+                cropped_video_remove_background = self.dense_video(cropped_video_remove_background)
+            # Dense Video end here #
             
-            videos.append(crop_resize_rotate_if_view2_video)
+            cropped_video_remove_background_resize_rotate = []
+            for frame in cropped_video_remove_background:
+                img = self.resize_rotate(frame, view1)        # rotate only if view 2
+                #cv.imshow("cropped", img)
+                #cv.waitKey(0)
+                cropped_video_remove_background_resize_rotate.append(img)
+            #cv.imshow("cropped", cropped_video_remove_background_resize_rotate)
+            #cv.waitKey(0)
+            videos.append(cropped_video_remove_background_resize_rotate)
 
         # Concatenation of two views starts here #
         combo_video = np.concatenate(videos, axis=1)
         # Concatenation of two views starts here #
-
-        # Rotate starts here #
-        ROTATE_90_COUNTERCLOCKWISE = self.rotate_video(combo_video, cv.ROTATE_90_COUNTERCLOCKWISE)
-        ROTATE_90_CLOCKWISE = self.rotate_video(combo_video, cv.ROTATE_90_CLOCKWISE)
-        ROTATE_180 = self.rotate_video(combo_video, cv.ROTATE_180)
-        # Rotate ends here #
         
-
         # Saving videos starts here #
         frames = [path.replace(self.dataset_path, self.save_path) for path in frames] # remove data_set path to save_path
         frames = [path.replace("view1\\", "") for path in frames] # remove view1
         frames = [path.replace("view2\\", "") for path in frames] # remove view2
         self.save_video(combo_video, frames)
 
+        if "validation" not in frames[0]:
+            # Rotate starts here #
+            ROTATE_90_COUNTERCLOCKWISE = self.rotate_video(combo_video, cv.ROTATE_90_COUNTERCLOCKWISE)
+            ROTATE_90_CLOCKWISE = self.rotate_video(combo_video, cv.ROTATE_90_CLOCKWISE)
+            ROTATE_180 = self.rotate_video(combo_video, cv.ROTATE_180)
+            # Rotate ends here #
 
-        save_rotate_path_90_counterclockwise = self.save_path + '_rotate_90_counterclockwise'
-        save_rotate_path_90_counterclockwise = [path.replace(self.save_path , save_rotate_path_90_counterclockwise) for path in frames] 
-        self.save_video(ROTATE_90_COUNTERCLOCKWISE, save_rotate_path_90_counterclockwise)
-        
-        save_rotate_path_90_clockwise = self.save_path + '_rotate_90_clockwise'
-        save_rotate_path_90_clockwise = [path.replace(self.save_path , save_rotate_path_90_clockwise) for path in frames] 
-        self.save_video(ROTATE_90_CLOCKWISE, save_rotate_path_90_clockwise)
+            save_rotate_path_90_counterclockwise = self.save_path + '_rotate_90_counterclockwise'
+            save_rotate_path_90_counterclockwise = [path.replace(self.save_path , save_rotate_path_90_counterclockwise) for path in frames] 
+            self.save_video(ROTATE_90_COUNTERCLOCKWISE, save_rotate_path_90_counterclockwise)
+            
+            save_rotate_path_90_clockwise = self.save_path + '_rotate_90_clockwise'
+            save_rotate_path_90_clockwise = [path.replace(self.save_path , save_rotate_path_90_clockwise) for path in frames] 
+            self.save_video(ROTATE_90_CLOCKWISE, save_rotate_path_90_clockwise)
 
-        save_rotate_path_180 = self.save_path + '_rotate_180'
-        save_rotate_path_180 = [path.replace(self.save_path , save_rotate_path_180) for path in frames] 
-        self.save_video(ROTATE_180, save_rotate_path_180)
-        # Saving videos Ends here #
+            save_rotate_path_180 = self.save_path + '_rotate_180'
+            save_rotate_path_180 = [path.replace(self.save_path , save_rotate_path_180) for path in frames] 
+            self.save_video(ROTATE_180, save_rotate_path_180)
+            # Saving videos Ends here #
 
     def remove_background(self, video, rate=30):                                       
         background = np.median(video, axis=0, keepdims=True).astype(np.uint8)
@@ -247,6 +259,10 @@ class DataMultiProcess():
 
     def start(self):
         if __name__ == '__main__':
+            if self.create_dense == True:
+                print("Creating dense dataset...")
+            else:
+                print("Creating dataset")
             # Dataset processing
             views = self.get_sample_folder_number(self.dataset_path)
             #self.pipelines(views[0])
@@ -261,4 +277,4 @@ class DataMultiProcess():
                 #pool.join()
                 pass
 
-DataMultiProcess('orgdata', 'data\\no_background\\crop_resize_concatenate_128x128', 'optics', True, (128, 128)).start()
+DataMultiProcess('D:\\orgdata', 'D:\\dataset\\data\\crop_resize_concatenate_224x224', False, (112, 224)).start()
