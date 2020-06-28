@@ -6,19 +6,19 @@ import numpy as np
 import torch.nn.functional as F
 
 class CNN2DLTSM(nn.Module):
-    def __init__(self, width, height, encoder_fcout, num_frames, out_features, num_layers, bidirectional, decoder_fcin, hidden_size=5, drop_p=0.4):
+    def __init__(self, width, height, num_frames, out_features, bidirectional, drop_p=0.4):
         super(CNN2DLTSM, self).__init__()
 
         # Encoder
         self.width = width
         self.height = height
-        self.encoder_fcout = encoder_fcout
+
         
         # Shared variable
         self.num_frames = num_frames
         self.drop_p = drop_p
 
-        if self.width is None or self.height is None or self.encoder_fcout is None or num_frames is None or out_features is None or num_layers is None or hidden_size is None or self.drop_p is None:
+        if self.width is None or self.height is None or num_frames is None or out_features is None or self.drop_p is None:
             raise RuntimeError('Please provide parameters for CNN2DLSTM')
 
         # Encoder Conv2d Starts#
@@ -28,7 +28,7 @@ class CNN2DLTSM(nn.Module):
         self.pd1, self.pd2, self.pd3, self.pd4, self.pd5 = (0, 0), (0, 0), (0, 0), (0, 0),(0, 0)   # 2d padding
 
         # fully connected layer hidden nodes
-        self.enc_fc1out, self.enc_fc2out = encoder_fcout[0], encoder_fcout[1]
+        self.enc_fc1out, self.enc_fc2out = 512, 256
         self.drop_p = drop_p
 
         self.conv1 = nn.Sequential(
@@ -76,13 +76,12 @@ class CNN2DLTSM(nn.Module):
         # Decoder LSTM Starts #
 
         self.out_features = out_features
-        self.num_layers = num_layers
-        self.hidden_size = hidden_size
+        self.num_layers = 3
+        self.hidden_size = 256
         self.bidirectional = bidirectional
-        self.de_fc1_out = decoder_fcin[0]
 
         if self.bidirectional:
-            self.de_fc1_in = 2*hidden_size # bidirectional doubles the parameter 
+            self.de_fc1_in = 2*self.hidden_size # bidirectional doubles the parameter 
         self.de_fc1_in = self.de_fc1_in * num_frames
 
         self.lstm = nn.LSTM(
@@ -92,12 +91,19 @@ class CNN2DLTSM(nn.Module):
             batch_first=True,
             bidirectional =self.bidirectional)
 
+        self.de_fc1_out = 1024
+        self.de_fc2_out = 512
         self.de_fc1 = nn.Sequential(
             nn.Linear(self.de_fc1_in, self.de_fc1_out),
             nn.ReLU(),
             nn.Dropout(p=self.drop_p)
         )
-        self.de_fc2 = nn.Linear(self.de_fc1_out, self.out_features)
+        self.de_fc2 = nn.Sequential(
+            nn.Linear(self.de_fc1_out, self.de_fc2_out),
+            nn.ReLU(),
+            nn.Dropout(p=self.drop_p)
+        )
+        self.de_fc3 = nn.Linear(self.de_fc2_out, self.out_features)
 
         # Decoder LSTM ends #
 
@@ -107,9 +113,9 @@ class CNN2DLTSM(nn.Module):
         output = self.__decoder(output)     # Decoder
         return output
 
-    def __encoder(self, x):
-        out = []
-        for y in x[0]:
+    def __encoder(self, input):
+        output = []
+        for y in input[0]:
             # CNNs
             y = y.unsqueeze(dim=0)
             y = self.conv1(y)
@@ -118,20 +124,20 @@ class CNN2DLTSM(nn.Module):
             y = self.conv4(y)
             y = self.conv5(y)
             y = y.view(y.size(0), -1)
-            out.append(y)
-        out = torch.stack(out, dim=0).transpose_(0, 1)
-        return out
+            output.append(y)
+        output = torch.stack(output, dim=0).transpose_(0, 1)
+        return output
 
-    def __decoder(self, x):
+    def __decoder(self, input):
         # RNN module weights are not part of single contiguous chunk of memory. This means they need to be compacted at every call, 
         # possibly greately increasing memory usage. 
         # To compact weights again call flatten_parameters().
         self.lstm.flatten_parameters()
-        output, (h_n, h_c) = self.lstm(x, None)  
-        y = output.view(1,-1)
-        y = self.de_fc1(y)
-        y = self.de_fc2(y)
-        return y
+        output, (h_n, h_c) = self.lstm(input, None)  
+        output = output.view(1,-1)
+        output = self.de_fc1(output)
+        output = self.de_fc2(output)
+        return output
 
     def __conv2D_output_size(self, img_size, padding, kernel_size, stride):
         # compute output shape of conv2D
