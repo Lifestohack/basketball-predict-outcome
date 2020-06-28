@@ -31,6 +31,7 @@ class Basketball():
         self.channel = 3
         self.drop_p = 0.5
         self.out_features = 2                # only 2 classifier hit or miss
+        self.lr = 0.001
         self.dense_flow = 'optics' 
         self.train_dense_loader = None
         self.test_dense_loader = None                                    
@@ -97,12 +98,17 @@ class Basketball():
         return obj, network
 
     def __CNN3D(self):
+        self.lr = 0.001
+        if self.num_frames == 55:
+            self.lr = 0.001
+        elif self.num_frames == 30:
+            self.lr = 0.0001
         loss = torch.nn.CrossEntropyLoss().to(self.device)
         network = CNN3D(width=self.width, height=self.height, in_channels=self.channel, num_frames=self.num_frames, out_features=self.out_features, drop_p=self.drop_p, fcout=[512]) # the shape of input will be Batch x Channel x Depth x Height x Width
         if torch.cuda.device_count() > 1:                                   #   will use multiple gpu if available
             network = nn.DataParallel(network) 
         network.to(self.device)
-        optimizer = torch.optim.Adam(network.parameters(), lr=0.0001, weight_decay=0.01)
+        optimizer = torch.optim.Adam(network.parameters(), lr=self.lr, weight_decay=0.01)
         obj = Traintest(self.module, self.device, network, loss, optimizer)
         return obj, network
 
