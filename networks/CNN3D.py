@@ -6,7 +6,7 @@ import torch.nn.functional as F
 import torch
 
 class CNN3D(nn.Module):
-    def __init__(self, width, height, num_frames, in_channels, out_features, fcout, drop_p=0.4):
+    def __init__(self, width, height, num_frames, in_channels, out_features, drop_p=0.5):
         super().__init__()
         #Batch x Channel x Depth x Height x Width
         self.width = width
@@ -15,12 +15,11 @@ class CNN3D(nn.Module):
         self.num_frames = num_frames
         self.out_features = out_features
         self.drop_p = drop_p
-        self.fcout = fcout
 
-        if self.width is None or self.height is None or self.num_frames is None  or self.in_channels is None or self.out_features is None or self.fcout is None or self.drop_p is None:
+        if self.width is None or self.height is None or self.num_frames is None  or self.in_channels is None or self.out_features is None or self.drop_p is None:
             raise RuntimeError('Please provide parameters for CNN3D')
 
-        self.fc1out = fcout[0]
+
         self.ch1, self.ch2, self.ch3, self.ch4, self.ch5 = 16, 32, 64, 128, 256
         self.k1, self.k2, self.k3, self.k4 , self.k5 = (2, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2) , (2, 2, 2)      # 3d kernel size
         self.s1, self.s2, self.s3, self.s4 , self.s5 = (2, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2)       # 3d strides
@@ -73,18 +72,19 @@ class CNN3D(nn.Module):
                 outshape = self.conv5_outshape
                 channel = self.ch5
         inputlinearvariables = channel * outshape[0] * outshape[1] * outshape[2]
-
+        self.fc1out = 1024
+        self.fc2out = 512
         self.fc1  = nn.Sequential(
             nn.Linear(inputlinearvariables, self.fc1out),
             nn.ReLU(inplace=True),
             nn.Dropout(self.drop_p)
         )
-        # self.fc2  = nn.Sequential(
-        #     nn.Linear(self.fc1out, self.fc1out),
-        #     nn.ReLU(inplace=True),
-        #     nn.Dropout(self.drop_p)
-        # )
-        self.fc2 = nn.Linear(self.fc1out, self.out_features)
+        self.fc2  = nn.Sequential(
+            nn.Linear(self.fc1out, self.fc2out),
+            nn.ReLU(inplace=True),
+            nn.Dropout(self.drop_p)
+        )
+        self.fc3 = nn.Linear(self.fc2out, self.out_features)
 
     def forward(self, input):
         input = self.__resize(input)
@@ -98,7 +98,7 @@ class CNN3D(nn.Module):
         output = output.view(1, -1)
         output = self.fc1(output)
         output = self.fc2(output)
-        #output = self.fc3(output)
+        output = self.fc3(output)
         return output
 
     def __conv3D_output_size(self, img_size, padding, kernel_size, stride):
