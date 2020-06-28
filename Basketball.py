@@ -98,13 +98,13 @@ class Basketball():
         return obj, network
 
     def __CNN3D(self):
-        self.lr = 0.001
+        self.lr = 0.0001
         if self.num_frames == 55:
             self.lr = 0.001
         elif self.num_frames == 30:
             self.lr = 0.0001
         loss = torch.nn.CrossEntropyLoss().to(self.device)
-        network = CNN3D(width=self.width, height=self.height, in_channels=self.channel, num_frames=self.num_frames, out_features=self.out_features, drop_p=self.drop_p, fcout=[512]) # the shape of input will be Batch x Channel x Depth x Height x Width
+        network = CNN3D(width=self.width, height=self.height, in_channels=self.channel, num_frames=self.num_frames, out_features=self.out_features, drop_p=self.drop_p) # the shape of input will be Batch x Channel x Depth x Height x Width
         if torch.cuda.device_count() > 1:                                   #   will use multiple gpu if available
             network = nn.DataParallel(network) 
         network.to(self.device)
@@ -122,7 +122,7 @@ class Basketball():
         if torch.cuda.device_count() > 1:                                       #   will use multiple gpu if available
             network = nn.DataParallel(network)
         network.to(self.device)
-        optimizer = torch.optim.Adam(network.parameters(), lr=0.0001, weight_decay=0.01)
+        optimizer = torch.optim.Adam(network.parameters(), lr=0.01, weight_decay=0.01)
         obj = Traintest(self.module, self.device, network, loss, optimizer)
         return obj, network
 
@@ -193,7 +193,7 @@ class Basketball():
         print("Saving Results...")
         save_path_results= self.config['results']
         save_path_results = os.path.join(save_path, save_path_results)
-        serialize.save_results(results, modelclass=module, path=save_path_results)
+        serialize.save_results(results, modelclass=str(self.num_frames) + "_" + str(self.lr) + "_" + module, path=save_path_results)
         #results = serialize.load_results('models\\results\\2020_05_15_12_08_22.csv') # to load the result
         print("Done")
 
@@ -209,7 +209,7 @@ class Basketball():
         print("Saving Validation results...")
         save_path_prediction = self.config['predictions']
         save_path_prediction_result = os.path.join(save_path, save_path_prediction)
-        validationpath = serialize.exportcsv(prediction, modelclass=module, path=save_path_prediction_result)
+        validationpath = serialize.exportcsv(prediction, modelclass=str(self.num_frames) + "_" + str(self.lr) + "_" + module, path=save_path_prediction_result)
         print("Done")
         # print("Saving network...")
         # save_path_network = self.config['trained_network']
