@@ -79,12 +79,12 @@ class CNN3D(nn.Module):
             nn.ReLU(inplace=True),
             nn.Dropout(self.drop_p)
         )
-        self.fc2  = nn.Sequential(
-            nn.Linear(self.fc1out, self.fc1out),
-            nn.ReLU(inplace=True),
-            nn.Dropout(self.drop_p)
-        )
-        self.fc3 = nn.Linear(self.fc1out, self.out_features)
+        # self.fc2  = nn.Sequential(
+        #     nn.Linear(self.fc1out, self.fc1out),
+        #     nn.ReLU(inplace=True),
+        #     nn.Dropout(self.drop_p)
+        # )
+        self.fc2 = nn.Linear(self.fc1out, self.out_features)
 
     def forward(self, input):
         input = self.__resize(input)
@@ -98,7 +98,7 @@ class CNN3D(nn.Module):
         output = output.view(1, -1)
         output = self.fc1(output)
         output = self.fc2(output)
-        output = self.fc3(output)
+        #output = self.fc3(output)
         return output
 
     def __conv3D_output_size(self, img_size, padding, kernel_size, stride):
