@@ -3,6 +3,7 @@
 import torch.nn as nn
 import numpy as np
 import torch.nn.functional as F
+import torch
 
 class CNN3D(nn.Module):
     def __init__(self, width, height, num_frames, in_channels, out_features, fcout, drop_p=0.4):
@@ -86,18 +87,19 @@ class CNN3D(nn.Module):
         self.fc3 = nn.Linear(self.fc1out, self.out_features)
 
     def forward(self, input):
-        x = self.conv1(input)
-        x = self.conv2(x)
-        x = self.conv3(x)
+        input = self.__resize(input)
+        output = self.conv1(input)
+        output = self.conv2(output)
+        output = self.conv3(output)
         if self.num_frames == 100 or self.num_frames == 55:
-            x = self.conv4(x)
+            output = self.conv4(output)
             if self.num_frames == 100:
-                x = self.conv5(x)
-        x = x.view(1, -1)
-        x = self.fc1(x)
-        x = self.fc2(x)
-        x = self.fc3(x)
-        return x
+                output = self.conv5(output)
+        output = output.view(1, -1)
+        output = self.fc1(output)
+        output = self.fc2(output)
+        output = self.fc3(output)
+        return output
 
     def __conv3D_output_size(self, img_size, padding, kernel_size, stride):
         # compute output shape of conv3D
@@ -105,3 +107,16 @@ class CNN3D(nn.Module):
                     np.floor((img_size[1] + 2 * padding[1] - (kernel_size[1] - 1) - 1) / stride[1] + 1).astype(int),
                     np.floor((img_size[2] + 2 * padding[2] - (kernel_size[2] - 1) - 1) / stride[2] + 1).astype(int))
         return outshape
+
+    def __resize(self, input):
+        output = None
+        # if two views then concatenated
+        if len(input.shape) == 6: 
+            input = torch.cat([input[0][0], input[0][1]], dim=2).unsqueeze(dim=0)
+        if len(input.shape) == 6:
+            output = input.permute(0, 1, 3, 2, 4, 5)
+        elif  len(input.shape) == 5:
+            output = input.permute(0, 2, 1, 3, 4)
+        else:
+            raise RuntimeError('Shape of the input for CNN3D is wrong. Please check.')
+        return output

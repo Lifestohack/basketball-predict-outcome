@@ -23,19 +23,18 @@ class Traintest():
         running_total = 0
         total_time_required = 0
         start = time.time()
-        for inputs, targets in trainset:
-            inputs = inputs.to(self.device)
-            targets = targets.to(self.device)
+        for input, target in trainset:
+            input = input.to(self.device)
+            target = target.to(self.device)
             self.network.zero_grad()
-            inputs = self.__resize(inputs)
-            outputs = self.network.forward(inputs)
-            l = self.loss(outputs, targets)
+            output = self.network.forward(input)
+            l = self.loss(output, target)
             l.backward()
             self.optimizer.step()
-            del inputs, outputs
+            del input, output
             torch.cuda.empty_cache()
             running_loss += l.item()
-            running_total += targets.size(0)
+            running_total += target.size(0)
             end = time.time()
             time_required = (end-start)
             total_time_required += time_required
@@ -51,19 +50,18 @@ class Traintest():
         total_time_required = 0
         with torch.no_grad():
             start = time.time()
-            for inputs, targets in testset:
-                inputs = inputs.to(self.device)
-                targets = targets.to(self.device)
+            for input, target in testset:
+                input = input.to(self.device)
+                target = target.to(self.device)
                 self.network.zero_grad()
-                inputs = self.__resize(inputs)
-                outputs = self.network.forward(inputs)
-                l = self.loss(outputs, targets)
+                output = self.network.forward(input)
+                l = self.loss(output, target)
                 running_loss += l.item()
-                _, predicted = torch.max(outputs.data, 1)
-                del inputs, outputs
+                _, predicted = torch.max(output.data, 1)
+                del input, output
                 torch.cuda.empty_cache()
-                running_total += targets.size(0)
-                correct += (predicted == targets).sum().item()
+                running_total += target.size(0)
+                correct += (predicted == target).sum().item()
                 end = time.time()
                 time_required = (end-start)
                 total_time_required += time_required
@@ -75,11 +73,10 @@ class Traintest():
         self.network.eval()
         prediction = []
         with torch.no_grad():
-            for inputs, sample in validationset:
+            for input, sample in validationset:
                 dictpred = {}
-                inputs = inputs.to(self.device)
-                inputs = self.__resize(inputs)
-                outputs = self.network.forward(inputs)
+                input = input.to(self.device)
+                outputs = self.network.forward(input)
                 predicted = torch.argmax(outputs.data, 1)
                 predicted = predicted.item()
                 sample = sample.item()
@@ -93,37 +90,6 @@ class Traintest():
                 dictpred['category'] = category
                 prediction.append(dictpred)
         return prediction
-
-    def __resize(self, inputs):
-        outputs = None
-        if self.module=='FFNN':
-            outputs = inputs
-        elif self.module=='CNN3D':
-            # if two views then concatenated
-            if len(inputs.shape) == 6: 
-                inputs = torch.cat([inputs[0][0], inputs[0][1]], dim=2).unsqueeze(dim=0)
-            if len(inputs.shape) == 6:
-                outputs = inputs.permute(0, 1, 3, 2, 4, 5)
-            elif  len(inputs.shape) == 5:
-                outputs = inputs.permute(0, 2, 1, 3, 4)
-            else:
-                raise RuntimeError('Shape of the input for CNN3D is wrong. Please check.')
-        elif self.module=='CNN2DLSTM':
-            # if two views then concatenate them. Need to check if this is also available for other networks
-            if len(inputs.shape) == 6:                  
-                outputs = torch.cat([inputs[0][0], inputs[0][1]], dim=2).unsqueeze(dim=0) #concatenate two view
-            else:
-                outputs = inputs
-        elif self.module=='OPTICALCONV3D':
-            if len(inputs.shape) == 7:
-                outputs = inputs.permute(0, 1, 2, 4, 3, 5, 6)
-            elif  len(inputs.shape) == 6:
-                outputs = inputs.permute(0, 1, 3, 2, 4, 5)
-            else:
-                raise RuntimeError('Shape of the input for OPTICALCNN3D is wrong. Please check.')
-        else:
-            raise RuntimeError("Network {} doesnot exists.".format(module))
-        return outputs
 
     def __print(self, time_required, total_time_required, total, num_samples):
         outstr = 'Time required for last sample: {:.2f}sec. Total time: {:.2f}sec.  Total tests: {}/{}'.format(time_required, total_time_required, total, num_samples)

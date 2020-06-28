@@ -100,33 +100,34 @@ class TwoStream(nn.Module):
         self.fc_combo2 = nn.Linear(in_features=fc_combo1_out, out_features=self.out_features, bias=self.bias)
         # Adding two stream of data ends here #
 
-    def forward(self, inputs):
-        cnn3d_out = self.__cnn3d(inputs[0][0].unsqueeze(dim=0))           #conv3d
-        optical_out = self.__cnn3d_optical(inputs[0][1].unsqueeze(dim=0)) #opticalconv3d
-        outputs = self.__combinetwostream(cnn3d_out, optical_out)         #combine
-        return outputs
+    def forward(self, input):
+        input = self.__resize(input)
+        cnn3d_out = self.__cnn3d(input[0][0].unsqueeze(dim=0))           #conv3d
+        optical_out = self.__cnn3d_optical(input[0][1].unsqueeze(dim=0)) #opticalconv3d
+        output = self.__combinetwostream(cnn3d_out, optical_out)         #combine
+        return output
 
-    def __cnn3d(self, x):
-        x = self.conv1(x)
-        x = self.conv2(x)
-        return x
+    def __cnn3d(self, input):
+        output = self.conv1(input)
+        output = self.conv2(output)
+        return output
 
-    def __cnn3d_optical(self, x):
-        x = self.conv_optical_1(x)
-        x = self.conv_optical_2(x)
-        return x
+    def __cnn3d_optical(self, input):
+        output = self.conv_optical_1(input)
+        output = self.conv_optical_2(output)
+        return output
 
     def __combinetwostream(self, cnn3d, optical):
-        x = torch.cat([cnn3d, optical], dim=1)
-        x = self.conv_combo1(x)
+        output = torch.cat([cnn3d, optical], dim=1)
+        output = self.conv_combo1(output)
         if self.num_frames == 100 or self.num_frames == 55:
-            x = self.conv_combo2(x)
+            output = self.conv_combo2(output)
             if self.num_frames == 100:
-                x = self.conv_combo3(x)
-        x = x.view(1,-1)
-        x = self.fc_combo1(x)
-        x = self.fc_combo2(x)
-        return x
+                output = self.conv_combo3(output)
+        output = output.view(1,-1)
+        output = self.fc_combo1(output)
+        output = self.fc_combo2(output)
+        return output
 
     def __conv3D_output_size(self, img_size, padding, kernel_size, stride):
         # compute output shape of conv3D
@@ -134,3 +135,13 @@ class TwoStream(nn.Module):
                     np.floor((img_size[1] + 2 * padding[1] - (kernel_size[1] - 1) - 1) / stride[1] + 1).astype(int),
                     np.floor((img_size[2] + 2 * padding[2] - (kernel_size[2] - 1) - 1) / stride[2] + 1).astype(int))
         return outshape
+
+    def __resize(self, input):
+        output = None
+        if len(input.shape) == 7:
+            output = input.permute(0, 1, 2, 4, 3, 5, 6)
+        elif  len(input.shape) == 6:
+            output = input.permute(0, 1, 3, 2, 4, 5)
+        else:
+            raise RuntimeError('Shape of the input for Two stream is wrong. Please check.')
+        return output

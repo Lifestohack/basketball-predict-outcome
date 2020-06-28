@@ -101,10 +101,11 @@ class CNN2DLTSM(nn.Module):
 
         # Decoder LSTM ends #
 
-    def forward(self, inputs):
-        outputs = self.__encoder(inputs)      # Encoder
-        outputs = self.__decoder(outputs)     # Decoder
-        return outputs
+    def forward(self, input):
+        input = self.__resize(input)
+        output = self.__encoder(input)      # Encoder
+        output = self.__decoder(output)     # Decoder
+        return output
 
     def __encoder(self, x):
         out = []
@@ -137,3 +138,12 @@ class CNN2DLTSM(nn.Module):
         outshape = (np.floor((img_size[0] + 2 * padding[0] - (kernel_size[0] - 1) - 1) / stride[0] + 1).astype(int),
                     np.floor((img_size[1] + 2 * padding[1] - (kernel_size[1] - 1) - 1) / stride[1] + 1).astype(int))
         return outshape
+    
+    def __resize(self, input):
+        output = None
+        # if two views then concatenate them. Need to check if this is also available for other networks
+        if len(input.shape) == 6:                  
+            outputs = torch.cat([input[0][0], input[0][1]], dim=2).unsqueeze(dim=0) #concatenate two view
+        else:
+            output = input
+        return output

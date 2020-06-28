@@ -33,9 +33,12 @@ class FFNN(nn.Module):
         self.fc3  = nn.Linear(self.fcout[1], self.out_features, self.bias)
 
 
-    def forward(self, x):
-        outputs = x.reshape(1,-1)
-        outputs = self.fc1(outputs)
-        outputs = self.fc2(outputs)
-        outputs = self.fc3(outputs)
-        return outputs
+    def forward(self, input):
+        input = self.__resize(input)
+        output = self.fc1(output)
+        output = self.fc2(output)
+        output = self.fc3(output)
+        return output
+
+    def __resize(self, input):
+        return input.reshape(1,-1)
