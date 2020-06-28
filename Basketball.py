@@ -100,7 +100,7 @@ class Basketball():
     def __CNN3D(self):
         self.lr = 0.0001
         if self.num_frames == 55:
-            self.lr = 0.001
+            self.lr = 0.0001
         elif self.num_frames == 30:
             self.lr = 0.0001
         loss = torch.nn.CrossEntropyLoss().to(self.device)
