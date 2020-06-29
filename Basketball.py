@@ -35,16 +35,23 @@ class Basketball():
         self.dense_flow = 'optics' 
         self.train_dense_loader = None
         self.test_dense_loader = None                                    
-        dataset = Dataset.Basketball(self.data, split=self.split, num_frames = self.num_frames)
-        if self.split == 'training':
-            trainset, testset = dataset.train_test_split(train_size=0.8)
-            self.trainset_loader = DataLoader(trainset, shuffle=True)
+        
+        dataset_training = Dataset.Basketball(self.data, split='training', num_frames = self.num_frames)
+        trainset, testset = dataset_training.train_test_split(train_size=0.8)
+        self.trainset_loader = DataLoader(trainset, shuffle=True)
+        if self.split != 'validation':
             self.testset_loader = DataLoader(testset, shuffle=True)
-        elif self.split == 'validation':
-            trainset, _ = dataset.train_test_split(train_size=1)
+
+        # dataset_validation = Dataset.Basketball(self.data, split='validation', num_frames = self.num_frames)
+        # trainset, _ = dataset_validation.train_test_split(train_size=1)
+        # self.trainset_loader = DataLoader(trainset, shuffle=True)
+
+        if self.split == 'validation':
+            trainset, _ = dataset_training.train_test_split(train_size=1)
             self.trainset_loader = DataLoader(trainset, shuffle=True)
-            validation = dataset.getvalidation()
-            self.validation_loader = DataLoader(validation, shuffle=True)
+
+        validation = dataset_training.getvalidation()
+        self.validation_loader = DataLoader(validation, shuffle=True)
 
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         torch.backends.cudnn.benchmark = True
@@ -112,7 +119,7 @@ class Basketball():
         return obj, network
 
     def __CNN2DLSTM(self):
-        self.lr = 0.00001
+        self.lr = 0.0001
         if self.num_frames == 55:
             self.lr = 0.0001
         elif self.num_frames == 30:
@@ -128,6 +135,11 @@ class Basketball():
         return obj, network
 
     def __OPTICALCONV3D(self):
+        self.lr = 0.0001
+        if self.num_frames == 55:
+            self.lr = 0.001
+        elif self.num_frames == 30:
+            self.lr = 0.001
         self.trainset_loader.dataset.setOpticalflow(True)
         if self.split == 'training':
             self.testset_loader.dataset.setOpticalflow(True)
@@ -137,12 +149,11 @@ class Basketball():
         if self.dense_flow is None:
             raise RuntimeError('Please provide the path to opticalflow data')
         network = TwoStream(width=self.width, height=self.height, in_channels=self.channel, 
-                                            out_features=self.out_features, drop_p=0.4, num_frames=self.num_frames,
-                                            fc_combo_out=[512]) # the shape of input will be Batch x Channel x Depth x Height x Width
+                                            out_features=self.out_features, drop_p=self.drop_p, num_frames=self.num_frames) # the shape of input will be Batch x Channel x Depth x Height x Width
         if torch.cuda.device_count() > 1:                                                       # will use multiple gpu if available
             network = nn.DataParallel(network) 
         network.to(self.device)
-        optimizer = torch.optim.Adam(network.parameters(), lr=0.0001, weight_decay=0.01)
+        optimizer = torch.optim.Adam(network.parameters(), lr=self.lr, weight_decay=0.01)
         #obj = OPTICALCONV3D.function.OPTICALCONV3DTraintest(self.device, network, loss, optimizer)
         obj = Traintest(self.module, self.device, network, loss, optimizer)
         return obj, network
@@ -160,6 +171,7 @@ class Basketball():
     def __runtraining(self, module, testeverytrain, EPOCHS):
         print("Starting {} using the data in folder {}.".format(module, self.data ) )
         train_test, network = self.__module(module)
+        print("Learning rate: {}".format(self.lr ) )
         num_parameter = self.__get_n_params(network)
         results = []
         results.append(['epochs','train','trainloss','test','correct','testloss'])
@@ -181,6 +193,17 @@ class Basketball():
                 result.append(running_test_loss/total_test)
                 results.append(result)
             print("-------------------------------------")
+        prediction = train_test.predict(self.validation_loader)
+        save_path = self.config['output']
+        print("")
+        print("Saving Validation results...")
+        save_path_prediction = self.config['predictions']
+        save_path_prediction_result = os.path.join(save_path, save_path_prediction)
+        validationpath = serialize.exportcsv(prediction, modelclass=str(self.num_frames) + "_" + str(self.lr) + "_" + module, path=save_path_prediction_result)
+        print("Done")
+        print("Validating...")
+        validation_result = validation.validate(validationpath)
+        print("Done")
         #print("Saving network...")
         save_path = self.config['output']
         #save_path_network = self.config['trained_network']
@@ -194,7 +217,7 @@ class Basketball():
         print("Saving Results...")
         save_path_results= self.config['results']
         save_path_results = os.path.join(save_path, save_path_results)
-        serialize.save_results(results, modelclass=str(self.num_frames) + "_" + str(self.lr) + "_" + module, path=save_path_results)
+        serialize.save_results(results, modelclass=str(self.num_frames) + "_" + str(self.lr) + "_" +  str(validation_result) + "_" + module, path=save_path_results)
         #results = serialize.load_results('models\\results\\2020_05_15_12_08_22.csv') # to load the result
         print("Done")
 
