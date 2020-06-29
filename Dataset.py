@@ -45,7 +45,7 @@ class Basketball(torch.utils.data.Dataset):
         if isavaiable == True:
             end = time.time()
             #print(end-start)
-            return item.get('frames'), item.get('label')
+            return item[0], item[1]
         label = None       # it is for validation purpose, 2 indicates validation and no label is available
         if 'miss' in self.curr_sample:
             label = 0
