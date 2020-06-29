@@ -18,5 +18,8 @@ def validate(file):
     for i in range(total):
         if targetdict[str(i)] == predicteddict[str(i)]:
             correct += 1
-        print("For {} target:{} Predicted:{}".format(i, targetdict[str(i)] , targetdict[str(i)]))
+        #print("For {} target:{} Predicted:{}".format(i, targetdict[str(i)] , targetdict[str(i)]))
     print("Result {} Correct:{}/{}".format(correct/total, correct , total))
+    return correct/total
+
+#validate("")
