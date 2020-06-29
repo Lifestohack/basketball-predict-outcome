@@ -6,7 +6,7 @@ import numpy as np
 import torch.nn.functional as F
 
 class TwoStream(nn.Module):
-    def __init__(self, width, height, num_frames, in_channels, out_features=2, bias=False, drop_p=0.4, fc_combo_out=[512]):
+    def __init__(self, width, height, num_frames, in_channels, out_features=2, bias=False, drop_p=0.5):
         super().__init__()
         
         # Conv3d 1 starts here#
@@ -89,8 +89,7 @@ class TwoStream(nn.Module):
         inputlinearvariables = channel * outshape[0] * outshape[1] * outshape[2]
         self.in_features = inputlinearvariables
         self.bias = bias
-        self.fc_combo_out = fc_combo_out
-        fc_combo1_out = self.fc_combo_out[0]
+        fc_combo1_out = 1024
         
         self.fc_combo1 = nn.Sequential(
             nn.Linear(in_features=self.in_features, out_features=fc_combo1_out, bias=self.bias),
