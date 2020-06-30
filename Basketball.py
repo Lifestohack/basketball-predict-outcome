@@ -99,8 +99,8 @@ class Basketball():
         elif self.num_frames == 30:
             self.lr = 0.0001
         loss = torch.nn.CrossEntropyLoss().to(self.device)
-        in_features = self.trainset_loader.dataset[0][0].numel()
-        network = FFNN(in_features=in_features, out_features=self.out_features, drop_p=self.drop_p, fcout = [256, 128])
+        in_features = self.width * self.height * self.channel * self.num_frames #self.trainset_loader.dataset[0][0].numel()
+        network = FFNN(in_features=in_features, out_features=self.out_features, drop_p=self.drop_p)
         if torch.cuda.device_count() > 1:   # will use multiple gpu if available
             network = nn.DataParallel(network) 
         network.to(self.device)
