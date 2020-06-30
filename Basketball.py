@@ -77,8 +77,8 @@ class Basketball():
             obj = self.__CNN3D()
         elif module=='CNN2DLSTM':
             obj = self.__CNN2DLSTM()
-        elif module=='OPTICALCONV3D':
-            obj = self.__OPTICALCONV3D()
+        elif module=='TWOSTREAM':
+            obj = self.__TWOSTREAM()
         else:
             ValueError("Network {} doesnot exists.".format(module))
         return obj
@@ -139,7 +139,7 @@ class Basketball():
         obj = Traintest(self.module, self.device, network, loss, optimizer)
         return obj, network
 
-    def __OPTICALCONV3D(self):
+    def __TWOSTREAM(self):
         self.lr = 0.0001
         if self.num_frames == 55:
             self.lr = 0.0001
