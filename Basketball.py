@@ -137,9 +137,9 @@ class Basketball():
     def __OPTICALCONV3D(self):
         self.lr = 0.0001
         if self.num_frames == 55:
-            self.lr = 0.001
+            self.lr = 0.0001
         elif self.num_frames == 30:
-            self.lr = 0.001
+            self.lr = 0.0001
         
         self.trainset_loader.dataset.setOpticalflow(True)
         if self.split == 'training':
