@@ -16,7 +16,7 @@ class TwoStream(nn.Module):
         self.in_channels = in_channels
         self.out_features = out_features
         self.drop_p = drop_p
-        self.ch1, self.ch2 = 16, 32
+        self.ch1, self.ch2, self.ch3 = 16, 32, 64
         self.k1, self.k2, self.k3, self.k4 = (2, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2)      # 3d kernel size
         self.s1, self.s2, self.s3, self.s4 = (2, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2)      # 3d strides
         self.pd1, self.pd2, self.pd3, self.pd4 = (0, 0, 0), (0, 0, 0), (0, 0, 0), (0, 0, 0)   # 3d padding
@@ -35,6 +35,16 @@ class TwoStream(nn.Module):
             nn.Dropout3d(self.drop_p)
         )
         self.conv2_outshape = self.__conv3D_output_size(self.conv1_outshape, self.pd2, self.k2, self.s2)
+        
+        self.conv3 = nn.Sequential(
+            nn.Conv3d(in_channels=self.ch2, out_channels=self.ch3, kernel_size=self.k3, stride=self.s3, padding=self.pd3),
+            nn.BatchNorm3d(self.ch3),
+            nn.ReLU(inplace=True),
+            nn.Dropout3d(self.drop_p)
+        )
+        
+        self.conv3_outshape = self.__conv3D_output_size(self.conv2_outshape, self.pd2, self.k2, self.s2)
+       
         # Conv3d 1 end here#
 
         # Conv3d 2 for dense flow starts here #
@@ -50,46 +60,42 @@ class TwoStream(nn.Module):
             nn.ReLU(inplace=True),
             nn.Dropout3d(self.drop_p)
         )
-        # Conv3d 2 for dense flow end here #
         
-        # Adding two stream of data starts here #
-        self.ch3, self.ch4, self.ch5, self.ch6= 64, 128, 256, 512
-        
-        self.conv_combo1 = nn.Sequential(
-            nn.Conv3d(in_channels=self.ch3, out_channels=self.ch4, kernel_size=self.k4, stride=self.s4, padding=self.pd4),
-            nn.BatchNorm3d(self.ch4),
+        self.conv_optical_3 = nn.Sequential(
+            nn.Conv3d(in_channels=self.ch2, out_channels=self.ch3, kernel_size=self.k3, stride=self.s3, padding=self.pd3),
+            nn.BatchNorm3d(self.ch3),
             nn.ReLU(inplace=True),
             nn.Dropout3d(self.drop_p)
         )
-        self.conv_combo1_outshape = self.__conv3D_output_size(self.conv2_outshape, self.pd3, self.k3, self.s3)
+        # Conv3d 2 for dense flow end here #
+        
+        # Adding two stream of data starts here #
+        self.ch4, self.ch5, self.ch6= 128, 256, 512
+        
+        self.conv_combo1 = nn.Sequential(
+            nn.Conv3d(in_channels=self.ch4, out_channels=self.ch5, kernel_size=self.k4, stride=self.s4, padding=self.pd4),
+            nn.BatchNorm3d(self.ch5),
+            nn.ReLU(inplace=True),
+            nn.Dropout3d(self.drop_p)
+        )
+        self.conv_combo1_outshape = self.__conv3D_output_size(self.conv3_outshape, self.pd3, self.k3, self.s3)
         
         outshape = self.conv_combo1_outshape
         channel = self.ch4
-        if self.num_frames == 100 or self.num_frames == 55:
+        if self.num_frames == 100:
             self.conv_combo2 = nn.Sequential(
-                nn.Conv3d(in_channels=self.ch4, out_channels=self.ch5, kernel_size=self.k4, stride=self.s4, padding=self.pd4),
-                nn.BatchNorm3d(self.ch5),
+                nn.Conv3d(in_channels=self.ch5, out_channels=self.ch6, kernel_size=self.k4, stride=self.s4, padding=self.pd4),
+                nn.BatchNorm3d(self.ch6),
                 nn.ReLU(inplace=True),
                 nn.Dropout3d(self.drop_p)
             )
-            self.conv_combo2_outshape = self.__conv3D_output_size(self.conv_combo1_outshape, self.pd3, self.k3, self.s3)
+            self.conv_combo2_outshape = self.__conv3D_output_size(self.conv_combo1_outshape, self.pd3, self.k3, self.s3)            
             outshape = self.conv_combo2_outshape
-            channel = self.ch5
-            if self.num_frames == 100:
-                self.conv_combo3 = nn.Sequential(
-                    nn.Conv3d(in_channels=self.ch5, out_channels=self.ch6, kernel_size=self.k4, stride=self.s4, padding=self.pd4),
-                    nn.BatchNorm3d(self.ch6),
-                    nn.ReLU(inplace=True),
-                    nn.Dropout3d(self.drop_p)
-                )
-                self.conv_combo3_outshape = self.__conv3D_output_size(self.conv_combo2_outshape, self.pd3, self.k3, self.s3)
-                outshape = self.conv_combo3_outshape
-                channel = self.ch6
-            
+            channel = self.ch6
         inputlinearvariables = channel * outshape[0] * outshape[1] * outshape[2]
         self.in_features = inputlinearvariables
         self.bias = bias
-        fc_combo1_out = 1024
+        fc_combo1_out = 512
         
         self.fc_combo1 = nn.Sequential(
             nn.Linear(in_features=self.in_features, out_features=fc_combo1_out, bias=self.bias),
@@ -109,20 +115,20 @@ class TwoStream(nn.Module):
     def __cnn3d(self, input):
         output = self.conv1(input)
         output = self.conv2(output)
+        output = self.conv3(output)
         return output
 
     def __cnn3d_optical(self, input):
         output = self.conv_optical_1(input)
         output = self.conv_optical_2(output)
+        output = self.conv_optical_3(output)
         return output
 
     def __combinetwostream(self, cnn3d, optical):
         output = torch.cat([cnn3d, optical], dim=1)
         output = self.conv_combo1(output)
-        if self.num_frames == 100 or self.num_frames == 55:
+        if self.num_frames == 100 :
             output = self.conv_combo2(output)
-            if self.num_frames == 100:
-                output = self.conv_combo3(output)
         output = output.view(1,-1)
         output = self.fc_combo1(output)
         output = self.fc_combo2(output)
