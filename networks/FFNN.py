@@ -35,7 +35,7 @@ class FFNN(nn.Module):
 
     def forward(self, input):
         input = self.__resize(input)
-        output = self.fc1(output)
+        output = self.fc1(input)
         output = self.fc2(output)
         output = self.fc3(output)
         return output
