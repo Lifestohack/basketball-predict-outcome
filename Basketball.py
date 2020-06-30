@@ -140,11 +140,12 @@ class Basketball():
             self.lr = 0.001
         elif self.num_frames == 30:
             self.lr = 0.001
+        
         self.trainset_loader.dataset.setOpticalflow(True)
         if self.split == 'training':
             self.testset_loader.dataset.setOpticalflow(True)
-        elif self.split == 'validation':
-            self.validation_loader.dataset.setOpticalflow(True)
+        self.validation_loader.dataset.setOpticalflow(True)
+            
         loss = torch.nn.CrossEntropyLoss().to(self.device)
         if self.dense_flow is None:
             raise RuntimeError('Please provide the path to opticalflow data')
