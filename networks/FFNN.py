@@ -5,15 +5,12 @@ import numpy as np
 import torch.nn.functional as F
 
 class FFNN(nn.Module):
-    def __init__(self, in_features, out_features, drop_p, bias=False):
+    def __init__(self, in_features, out_features, drop_p=0.5, bias=False):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
         self.drop_p = drop_p
         self.bias = bias
-
-        if self.drop_p is None:
-            self.drop_p = 0.5
 
         self.fcout1 = 256
         self.fcout2 = 128
