@@ -149,65 +149,14 @@ class DataMultiProcess():
             cv.imwrite(frame, img)
         print('Saved:  ', folder)
 
-    def pipelines(self, sample):
-        views = os.listdir(sample)
-        views = [os.path.join(sample, view) for view in views]
-        
-        videos = []
-
-        for view in views:
-            frames = os.listdir(view)
-            frames = [os.path.join(view, frame) for frame in frames]
-            video = []
-            frames.sort()
-            # Read images from view starts here #
-            for frame in frames:
-                img = cv.imread(frame)
-                video.append(img)
-            # Read images from view ends here #
-
-            # Crop resize and rotate if view 2 starts here # 
-            view1 = False
-            width = self.crop_width                 # view1 is horizontal video
-            height = self.crop_height
-            if "view1" in view:
-                view1 = True
-            else:
-                view1 = False
-                width = self.crop_height            # view2 is vertical video so width and height changes
-                height = self.crop_width
-            
-            cropped_video = []
-            for frame in video:
-                img = self._crop_image(frame, width, height, view1)
-                cropped_video.append(img)
-            # Crop resize and rotate if view 2 ends here # 
-
-            # remove the background of the previously read view starts here #
-            cropped_video_remove_background = self.remove_background(cropped_video)
-            # remove the background of the previously read view starts here #
-        
-            # Dense Video starts here #
-            if self.create_dense == True:
-                cropped_video_remove_background = self.dense_video(cropped_video_remove_background)
-            # Dense Video end here #
-            
-            cropped_video_remove_background_resize_rotate = []
-            for frame in cropped_video_remove_background:
-                img = self.resize_rotate(frame, view1)        # rotate only if view 2
-                #cv.imshow("cropped", img)
-                #cv.waitKey(0)
-                cropped_video_remove_background_resize_rotate.append(img)
-            #cv.imshow("cropped", cropped_video_remove_background_resize_rotate)
-            #cv.waitKey(0)
-            videos.append(cropped_video_remove_background_resize_rotate)
-
+    def pipeline(self, sample):
+        views, frames = self.__get_nobackground_cropped_views(sample, True)
         # Concatenation of two views starts here #
-        combo_video = np.concatenate(videos, axis=1)
+        combo_video = np.concatenate(views, axis=1)
         # Concatenation of two views starts here #
         
         # Saving videos starts here #
-        frames = [path.replace(self.dataset_path, self.save_path) for path in frames] # remove data_set path to save_path
+        frames = [path.replace(self.dataset_path, self.save_path) for path in frames[0]] # remove data_set path to save_path
         frames = [path.replace("view1\\", "") for path in frames] # remove view1
         frames = [path.replace("view2\\", "") for path in frames] # remove view2
         self.save_video(combo_video, frames)
@@ -232,13 +181,70 @@ class DataMultiProcess():
             self.save_video(ROTATE_180, save_rotate_path_180)
             # Saving videos Ends here #
 
+    def pipeline_no_background_crop(self, sample):
+        views, frames = self.__get_nobackground_cropped_views(sample, False)
+        # Saving videos starts here #
+        for view, frame in zip(views, frames):
+            frame = [path.replace(self.dataset_path, self.save_path) for path in frame] # remove data_set path to save_path
+            self.save_video(view, frame)
+        # Saving videos Ends here #
+
+    def __get_nobackground_cropped_views(self, sample, rotateresize):
+        views = os.listdir(sample)
+        views = [os.path.join(sample, view) for view in views]
+        bothviews = []
+        bothviewspath = []
+        for view in views:
+            frames = os.listdir(view)
+            frames = [os.path.join(view, frame) for frame in frames]
+            video = []
+            frames.sort()
+            # Read images from view starts here #
+            for frame in frames:
+                img = cv.imread(frame)
+                video.append(img)
+            # Read images from view ends here #
+
+            # remove the background of the previously read view starts here #
+            removed_background_video = self.remove_background(video)
+            # remove the background of the previously read view starts here #
+
+            view1 = False
+            width = self.crop_width                 # view1 is horizontal video
+            height = self.crop_height
+            if "view1" in view:
+                view1 = True
+            else:
+                view1 = False
+                width = self.crop_height            # view2 is vertical video so width and height changes
+                height = self.crop_width
+            
+            # Dense Video starts here #
+            if self.create_dense == True:
+                removed_background_video = self.dense_video(removed_background_video)
+            # Dense Video end here #
+
+            # Crop resize and rotate if view 2 starts here #            
+            cropped_resize_rotate_removed_background_video = []
+            for frame in removed_background_video:
+                frame = self._crop_image(frame, width, height, view1)
+                if rotateresize:
+                    frame = self.resize_rotate(frame, view1)        # rotate only if view 2
+                cropped_resize_rotate_removed_background_video.append(frame)
+            # Crop resize and rotate if view 2 ends here #
+            bothviews.append(cropped_resize_rotate_removed_background_video)
+            bothviewspath.append(frames)
+        return bothviews, bothviewspath
+
     def remove_background(self, video):  
-        kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))
+        kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (5, 5)) #10,10
         backSub = cv.createBackgroundSubtractorMOG2()
         #backSub = cv.createBackgroundSubtractorKNN()
         removed_background = []
         for i, frame in enumerate(video):
             mask = backSub.apply(frame)
+            if i == 0:
+                continue
             gmask = cv.morphologyEx(mask, cv.MORPH_OPEN, kernel)
             #gmask = cv.erode(gmask,kernel,iterations = 1)
             fgMask = gmask[:, :, None] * np.ones(3, dtype=int)[None, None, :]
@@ -276,14 +282,16 @@ class DataMultiProcess():
                 print("Creating dataset")
             # Dataset processing
             views = self.get_sample_folder_number(self.dataset_path)
-            #self.pipelines(views[0])
+            #self.pipeline(views[0])
             try:
                 # use crop_resize_concatenate for resizing concatenating and saving
                 # use rotate to rotate images
                 pool = Pool()                  # Create a multiprocessing Pool.
-                pool.map(self.pipelines, views)    # process data_inputs iterable with pool
+                pool.map(self.pipeline, views)    # process data_inputs iterable with pool
                 pass
             finally:                            # To make sure processes are closed in the end, even if errors happen
                 #pool.close()
                 #pool.join()
                 pass
+
+DataMultiProcess('dataset\\orgdata', 'dataset\\data\\samples', False, (64, 128)).start()
