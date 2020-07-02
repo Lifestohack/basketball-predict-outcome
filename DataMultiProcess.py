@@ -294,4 +294,6 @@ class DataMultiProcess():
                 #pool.join()
                 pass
 
-DataMultiProcess('dataset\\orgdata', 'dataset\\data\\samples', False, (64, 128)).start()
+DataMultiProcess('dataset\\orgdata', 'dataset\\data\\samples', False, (64, 128)).start() # For CNN3D and CNN2DLSTM
+#DataMultiProcess('dataset\\orgdata', 'dataset\\data\\samples', True, (64, 128)).start() # For this for Two stream
+#DataMultiProcess('dataset\\orgdata', 'dataset\\data\\samples', False, (24, 48)).start() # Run this for FFNN
