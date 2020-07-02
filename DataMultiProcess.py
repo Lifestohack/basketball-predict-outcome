@@ -12,8 +12,8 @@ class DataMultiProcess():
         self.save_path = save_path
         self.create_dense = create_dense
         self.resize = resize
-        self.crop_width = 792
-        self.crop_height = 396
+        self.crop_width = 768
+        self.crop_height = 384
 
     def get_views(self, data_path):
         go_deeper = True
@@ -107,11 +107,11 @@ class DataMultiProcess():
 
     def _crop_image(self, img, cropx, cropy, view1):
         y,x,z = img.shape
-        xx = 35
-        yy = 40
+        xx = 40
+        yy = 60
         if not view1:
-            xx = 120
-            yy = -60
+            xx = 100
+            yy = - 30
         startx = x//2-(cropx//2) - xx
         starty = y//2-(cropy//2) - yy
         crop_img = img[starty:starty+cropy,startx:startx+cropx]
@@ -159,6 +159,7 @@ class DataMultiProcess():
             frames = os.listdir(view)
             frames = [os.path.join(view, frame) for frame in frames]
             video = []
+            frames.sort()
             # Read images from view starts here #
             for frame in frames:
                 img = cv.imread(frame)
@@ -231,13 +232,23 @@ class DataMultiProcess():
             self.save_video(ROTATE_180, save_rotate_path_180)
             # Saving videos Ends here #
 
-    def remove_background(self, video, rate=30):                                       
-        background = np.median(video, axis=0, keepdims=True).astype(np.uint8)
-        foreground = np.absolute((background - video))    
-        foreground[foreground > (255 - rate)] = 0
-        foreground[foreground < (0 + rate)] = 0          
-        #Image.fromarray(foreground[0]).save('result.png')
-        return foreground
+    def remove_background(self, video):  
+        kernel = cv.getStructuringElement(cv.MORPH_ELLIPSE, (3, 3))
+        backSub = cv.createBackgroundSubtractorMOG2()
+        #backSub = cv.createBackgroundSubtractorKNN()
+        removed_background = []
+        for i, frame in enumerate(video):
+            mask = backSub.apply(frame)
+            gmask = cv.morphologyEx(mask, cv.MORPH_OPEN, kernel)
+            #gmask = cv.erode(gmask,kernel,iterations = 1)
+            fgMask = gmask[:, :, None] * np.ones(3, dtype=int)[None, None, :]
+            foreground = frame * (fgMask!=0)
+            removed_background.append(foreground)
+            #cv.imshow("cropped", foreground)
+            #keyboard = cv.waitKey(30)
+            #if keyboard == 'q' or keyboard == 27:
+            #    break
+        return removed_background
     
     def dense_video(self, video):
         return denseflow.get_optical_flow(video)
@@ -276,5 +287,3 @@ class DataMultiProcess():
                 #pool.close()
                 #pool.join()
                 pass
-
-DataMultiProcess('D:\\orgdata', 'D:\\dataset\\data\\crop_resize_concatenate_224x224', False, (112, 224)).start()
