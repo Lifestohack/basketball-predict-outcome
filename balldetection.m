@@ -1,37 +1,45 @@
 clear
-
-readpath = 'D:\dataset\withoutbackground';
-savepath = 'D:\dataset\trajectory';
+readpath = 'dataset\data\cropped_samples';
+savepath = 'dataset\data\trajectory';
 start(readpath, savepath)
 
-
-path = 'D:\dataset\withoutbackground\training\hit\0\view2'
-
-rootdir = dir(fullfile(path, "**/*.png"));
-for n = 1:length(rootdir)
-    path = fullfile(rootdir(n).folder, rootdir(n).name);
-    getcirclecoordinates(path)
-end
-
-
+% path = 'dataset\data\sampless\training\hit\0\view1';
+% rootdir = dir(fullfile(path, "**/*.png"));
+% pos = [];
+% for n = 1:length(rootdir)
+%     path = fullfile(rootdir(n).folder, rootdir(n).name);
+%     [center,radius] = getcirclecoordinates(path)
+%     if ~isempty(center) 
+%         pos = [pos;[n, center, radius]];
+%     end
+% end
+% 
+% pos = process(pos);
+% x = pos(:, 2);
+% y = pos(:, 3);
+% 
+% for i = 1:length(x)
+%     hold on;
+%     plot(x(i), y(i), 'ro', 'MarkerSize', 30);
+% end
+% csvwrite("C:\Users\lumi\basketball\diwas.csv",position);
 
 function start(readpath, savepath)
     rootdir = dir(fullfile(readpath));
     step = 0;
+    total = length(dir(fullfile(readpath, "**/*.png")));
     for n = 1 : length(rootdir)
          %img_path = fullfile(rootdir(n).folder,rootdir(n).name)
          if rootdir(n).name ~= "."
             if rootdir(n).name ~= ".."
                 trainorvalid = fullfile(rootdir(n).folder, rootdir(n).name);
                 trainorvaliddir = dir(trainorvalid);
-                total = length(dir(fullfile(trainorvalid, "**/*.png")));
                 for i = 1 : length(trainorvaliddir)
                      if trainorvaliddir(i).name ~= "."
                         if trainorvaliddir(i).name ~= ".."
                             if contains(trainorvaliddir(i).name, "hit") | contains(trainorvaliddir(i).name, "miss")
                                 hitormiss = fullfile(trainorvaliddir(i).folder, trainorvaliddir(i).name);
                                 hitormissddir = dir(hitormiss);
-                                total = length(dir(fullfile(hitormiss, "**/*.png")));
                                 for j = 1 : length(hitormissddir)
                                     if hitormissddir(j).name ~= "."
                                         if hitormissddir(j).name ~= ".."
@@ -43,7 +51,7 @@ function start(readpath, savepath)
                                                         view1 = fullfile(sampleddir(k).folder, sampleddir(k).name, "**/*.png");
                                                         view1dir = dir(view1);
                                                         view(view1dir,readpath, savepath)
-                                                        step = step + 1;
+                                                        step = step + 99;
                                                         disp((step/total)*100);   
                                                     end
                                                 end
@@ -62,7 +70,7 @@ function start(readpath, savepath)
                                               view1 = fullfile(sampleddir(k).folder, sampleddir(k).name, "**/*.png");
                                               view1dir = dir(view1);
                                               view(view1dir, readpath, savepath);
-                                              step = step + 100;
+                                              step = step + 99;
                                               disp((step/total)*100);   
                                           end
                                       end
@@ -82,33 +90,33 @@ function view(view1dir, readpath, savepath)
         image = fullfile(view1dir(l).folder, view1dir(l).name );
         [center, radius] = getcirclecoordinates(image);
         if ~isempty(center)
-            datatocsv = [datatocsv;[center, radius]];
+            datatocsv = [datatocsv;[l, center, radius]];
         end
     end
-    csvsavepath = strrep(image,'99.png','trajectory.csv');
+    pos = process(datatocsv);
+    [filepath,name,ext] = fileparts(image);
+    csvsavepath = strrep(image,strcat(name, ext),'trajectory.csv');
     csvsavepath = strrep(csvsavepath,readpath,savepath);
     [filepath,name,ext] = fileparts(csvsavepath);
     if ~exist(filepath, 'dir')
         mkdir(filepath);
     end
-    csvwrite(csvsavepath,datatocsv);
+    csvwrite(csvsavepath,pos);
 end
 
 function [centersBright,radiiBright] = getcirclecoordinates(path)
     if contains(path, "view1")
-       radius = [8 15];
-       sense = 0.99;
+       radius = [13 20];
+       sense = 0.95;
        edge = 0.1;
     else
-       radius = [25 40];    
-       sense = 0.98;
+       radius = [15 40];    
+       sense = 0.95;
        edge = 0.2;
     end
-    %it returns the mid point of the ball and radius
     rgb = imread(path);
-    %gray_image = rgb2gray(rgb);
+    %rgb = rgb2gray(rgb);
     %imshow(rgb)
-    %13
     [centersBright,radiiBright,metricBright] = imfindcircles(rgb,radius, ...
         'ObjectPolarity','bright','Sensitivity',sense,'EdgeThreshold',edge);
     
@@ -116,14 +124,14 @@ function [centersBright,radiiBright] = getcirclecoordinates(path)
         %don't need circle in the subject body if it is already thrown. 
         % it is probably error
         for i = length(radiiBright):-1:1
-            if centersBright(i,1) >= 720 & centersBright(i,2) >= 270
+            if centersBright(i,1) >= 750 & centersBright(i,2) >= 320
                 radiiBright(i) = [];
                 centersBright(i,:) = [];
             end
         end
     else
        for i = length(radiiBright):-1:1
-            if centersBright(i,2) >= 540
+            if centersBright(i,2) >= 600
                 radiiBright(i) = [];
                 centersBright(i,:) = [];
             end
@@ -146,4 +154,40 @@ function [centersBright,radiiBright] = getcirclecoordinates(path)
     end
     %hBright = viscircles(centersBright, radiiBright,'Color','r');
     %pause(0.01)
+end
+
+function position = process(position)
+    newposition = [];
+    for n = 1:length(position)
+        if n == 1
+            continue
+        end
+        points = position(n,1) - position(n-1,1) -1 ;
+        if points==0
+            continue
+        else
+            p = linspace(position(n-1, 1), position(n,1), points + 2);
+            x = linspace(position(n-1, 2), position(n,2), points + 2);
+            y = linspace(position(n-1, 3), position(n,3), points + 2);
+            r = linspace(position(n-1, 4), position(n,4), points + 2);
+            p(1) = [];p(end) = [];
+            x(1) = [];x(end) = [];
+            y(1) = [];y(end) = [];
+            r(1) = [];r(end) = [];
+            for i=1:length(p)
+                newposition = [newposition;[p(i), x(i), y(i), r(i)]];
+            end
+        end
+    end
+    
+    %copy first frames values from the first available values
+    for i=position(1,1)-1:-1:1
+        newposition = [newposition;[i, position(1,2), position(1,3), position(1,4)]];
+    end
+    %copy first frames values from the first available values
+    for i=position(end,1)+1:99
+        newposition = [newposition;[i, position(end,2), position(end,3), position(end,4)]];
+    end
+    position = cat(1, position, newposition);
+    position = sortrows(position,1);
 end
