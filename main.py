@@ -11,8 +11,8 @@ EPOCHS = 1
 
 dp = Basketball.Basketball(data, width=128, height=128,  num_frames=num_frames, split=split)
 #dp.run('FFNN', testeverytrain=True, EPOCHS=EPOCHS)
-dp.run('CNN2DLSTM', testeverytrain=True, EPOCHS=EPOCHS) # EPOCHS = 16  for 30 frames, 20 for 55 frames
-#dp.run('CNN2DLSTM', testeverytrain=True, EPOCHS=EPOCHS) 
-#dp.run('OPTICALCONV3D', testeverytrain=True, EPOCHS=EPOCHS)
+dp.run('CNN3D', testeverytrain=True, EPOCHS=EPOCHS)
+dp.run('CNN2DLSTM', testeverytrain=True, EPOCHS=EPOCHS)
+#dp.run('TWOSTREAM', testeverytrain=True, EPOCHS=EPOCHS)
 end_time = time.time()
 print("Total time required: {} seconds".format(end_time - start_time))
