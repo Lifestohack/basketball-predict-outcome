@@ -6,19 +6,21 @@ import numpy as np
 import torch.nn.functional as F
 
 class CNN2DLTSM(nn.Module):
-    def __init__(self, width, height, num_frames, out_features, bidirectional, drop_p=0.4):
+    def __init__(self, width, height, num_frames, out_features, num_layers, bidirectional, drop_p=0.5):
         super(CNN2DLTSM, self).__init__()
 
         # Encoder
         self.width = width
         self.height = height
-
+        self.encoder_fcout= [512, 256]
+        self.decoder_fcin = [256]
+        self.hidden_size = 256
         
         # Shared variable
         self.num_frames = num_frames
         self.drop_p = drop_p
 
-        if self.width is None or self.height is None or num_frames is None or out_features is None or self.drop_p is None:
+        if self.width is None or self.height is None or num_frames is None or out_features is None or num_layers is None or self.drop_p is None:
             raise RuntimeError('Please provide parameters for CNN2DLSTM')
 
         # Encoder Conv2d Starts#
@@ -28,13 +30,15 @@ class CNN2DLTSM(nn.Module):
         self.pd1, self.pd2, self.pd3, self.pd4, self.pd5 = (0, 0), (0, 0), (0, 0), (0, 0),(0, 0)   # 2d padding
 
         # fully connected layer hidden nodes
-        self.enc_fc1out, self.enc_fc2out = 512, 256
+        self.enc_fc1out, self.enc_fc2out = self.encoder_fcout[0],  self.encoder_fcout[1]
         self.drop_p = drop_p
 
         self.conv1 = nn.Sequential(
             nn.Conv2d(in_channels=3, out_channels=self.ch1, kernel_size=self.k1, stride=self.s1, padding=self.pd1),
             nn.BatchNorm2d(self.ch1),
-            nn.ReLU()
+            nn.ReLU(),
+            nn.Dropout2d(p=self.drop_p)                      
+            #nn.MaxPool2d(kernel_size=2),
         )
         self.conv1_outshape = self.__conv2D_output_size((self.width, self.height), self.pd1, self.k1, self.s1)  # Conv1 output shape
         
@@ -42,7 +46,8 @@ class CNN2DLTSM(nn.Module):
             nn.Conv2d(in_channels=self.ch1, out_channels=self.ch2, kernel_size=self.k2, stride=self.s2, padding=self.pd2),
             nn.BatchNorm2d(self.ch2),
             nn.ReLU(),
-            nn.Dropout2d(p=self.drop_p)
+            nn.Dropout2d(p=self.drop_p)   
+            # nn.MaxPool2d(kernel_size=2),
         )
         self.conv2_outshape = self.__conv2D_output_size(self.conv1_outshape, self.pd2, self.k2, self.s2)
         
@@ -51,6 +56,7 @@ class CNN2DLTSM(nn.Module):
             nn.BatchNorm2d(self.ch3),
             nn.ReLU(),
             nn.Dropout2d(p=self.drop_p)
+            # nn.MaxPool2d(kernel_size=2),
         )
         self.conv3_outshape = self.__conv2D_output_size(self.conv2_outshape, self.pd3, self.k3, self.s3)
         
@@ -59,6 +65,7 @@ class CNN2DLTSM(nn.Module):
             nn.BatchNorm2d(self.ch4),
             nn.ReLU(),
             nn.Dropout2d(p=self.drop_p)
+            # nn.MaxPool2d(kernel_size=2),
         )
         self.conv4_outshape = self.__conv2D_output_size(self.conv3_outshape, self.pd4, self.k4, self.s4)
         
@@ -67,6 +74,7 @@ class CNN2DLTSM(nn.Module):
             nn.BatchNorm2d(self.ch5),
             nn.ReLU(),
             nn.Dropout2d(p=self.drop_p)
+            # nn.MaxPool2d(kernel_size=2),
         )
         self.conv5_outshape = self.__conv2D_output_size(self.conv4_outshape, self.pd5, self.k5, self.s5)
 
@@ -76,9 +84,9 @@ class CNN2DLTSM(nn.Module):
         # Decoder LSTM Starts #
 
         self.out_features = out_features
-        self.num_layers = 3
-        self.hidden_size = 256
+        self.num_layers = num_layers
         self.bidirectional = bidirectional
+        self.de_fc1_out = self.decoder_fcin[0]
 
         if self.bidirectional:
             self.de_fc1_in = 2*self.hidden_size # bidirectional doubles the parameter 
@@ -91,21 +99,12 @@ class CNN2DLTSM(nn.Module):
             batch_first=True,
             bidirectional =self.bidirectional)
 
-        self.de_fc1_out = 1024
-        self.de_fc2_out = 512
         self.de_fc1 = nn.Sequential(
             nn.Linear(self.de_fc1_in, self.de_fc1_out),
             nn.ReLU(),
             nn.Dropout(p=self.drop_p)
         )
-        self.de_fc2 = nn.Sequential(
-            nn.Linear(self.de_fc1_out, self.de_fc2_out),
-            nn.ReLU(),
-            nn.Dropout(p=self.drop_p)
-        )
-        self.de_fc3 = nn.Linear(self.de_fc2_out, self.out_features)
-
-        # Decoder LSTM ends #
+        self.de_fc2 = nn.Linear(self.de_fc1_out, self.out_features)
 
     def forward(self, input):
         input = self.__resize(input)
@@ -113,18 +112,20 @@ class CNN2DLTSM(nn.Module):
         output = self.__decoder(output)     # Decoder
         return output
 
+        # Decoder LSTM ends #
+
     def __encoder(self, input):
         output = []
-        for y in input[0]:
+        for out in input[0]:
             # CNNs
-            y = y.unsqueeze(dim=0)
-            y = self.conv1(y)
-            y = self.conv2(y)
-            y = self.conv3(y)
-            y = self.conv4(y)
-            y = self.conv5(y)
-            y = y.view(y.size(0), -1)
-            output.append(y)
+            out = out.unsqueeze(dim=0)
+            out = self.conv1(out)
+            out = self.conv2(out)
+            out = self.conv3(out)
+            out = self.conv4(out)
+            out = self.conv5(out)
+            out = out.view(out.size(0), -1)
+            output.append(out)
         output = torch.stack(output, dim=0).transpose_(0, 1)
         return output
 
@@ -144,7 +145,7 @@ class CNN2DLTSM(nn.Module):
         outshape = (np.floor((img_size[0] + 2 * padding[0] - (kernel_size[0] - 1) - 1) / stride[0] + 1).astype(int),
                     np.floor((img_size[1] + 2 * padding[1] - (kernel_size[1] - 1) - 1) / stride[1] + 1).astype(int))
         return outshape
-    
+        
     def __resize(self, input):
         output = None
         # if two views then concatenate them. Need to check if this is also available for other networks
