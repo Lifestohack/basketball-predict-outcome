@@ -1,6 +1,12 @@
+#!/usr/bin/env python
+
 from psutil import virtual_memory
 
 class Cache():
+    # Window memory management paging doesnot seems to handle this properly. 
+    # After running the training for long time, it starts paging the memory
+    # When it is again needed then it takes long time to retrieve
+    # Run it in a linux operating system if that problem persist
     def __init__(self):
         super().__init__()
         self.__THRESHOLD = 1536 * 1024 * 1024 # in byte
@@ -22,8 +28,7 @@ class Cache():
         if cache == None:
             self.__length += 1
             value = [frames, label]
-            self.__cache[path] = value #'dataset/data/crop_resize_concatenate_128x128/training/hit/9'
-            pass
+            self.__cache[path] = value 
 
     def getlength(self):
         return __length
