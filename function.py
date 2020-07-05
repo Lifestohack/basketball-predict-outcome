@@ -75,14 +75,13 @@ class Traintest():
 
     def predict(self, validationset):
         self.network.eval()
-        prediction = []
+        dictpred = {}
         running_total = 0
         total_time_required = 0
         with torch.no_grad():
             start = time.time()
             for input, sample in validationset:
                 target = torch.tensor(self.ishitormiss(sample[0]))
-                dictpred = {}
                 input = input.to(self.device)
                 outputs = self.network.forward(input)
                 predicted = torch.argmax(outputs.data, 1)
@@ -94,15 +93,13 @@ class Traintest():
                     category = 'h'
                 else:
                     raise ValueError()
-                dictpred['id'] = target
-                dictpred['category'] = category
-                prediction.append(dictpred)
+                dictpred[target] = category
                 running_total += 1
                 end = time.time()
                 time_required = (end-start)
                 total_time_required += time_required
                 self.__print(time_required, total_time_required, running_total, len(validationset.dataset))
-        return prediction
+        return dictpred
 
     def __print(self, time_required, total_time_required, total, num_samples):
         outstr = 'Time required for last sample: {:.2f}sec. Total time: {:.2f}sec.  Total tests: {}/{}'.format(time_required, total_time_required, total, num_samples)

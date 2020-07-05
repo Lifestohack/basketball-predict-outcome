@@ -64,10 +64,11 @@ class Basketball():
         self.config = config['DEFAULT']
         #a = config['trained_network']
 
-    def run(self, num_frames, module='FFNN', testeverytrain=True, EPOCHS=1):
+    def run(self, num_frames, module='FFNN', testeverytrain=True, EPOCHS=1, lr=0.01):
         if not num_frames:
             raise RuntimeError('Please pass parameter.')
         self.num_frames = num_frames
+        self.lr = lr
         self.trainset_loader.dataset.setFrames(self.num_frames)
         if self.split != 'validation':
             self.testset_loader.dataset.setFrames(self.num_frames)
@@ -120,11 +121,6 @@ class Basketball():
         return obj, network
 
     def __CNN3D(self):
-        self.lr = 0.001
-        if self.num_frames == 55:
-            self.lr = 0.001
-        elif self.num_frames == 30:
-            self.lr = 0.0001
         loss = torch.nn.CrossEntropyLoss().to(self.device)
         network = CNN3D(width=self.width, height=self.height, in_channels=self.channel, num_frames=self.num_frames, out_features=self.out_features, drop_p=self.drop_p) # the shape of input will be Batch x Channel x Depth x Height x Width
         if torch.cuda.device_count() > 1:                                   #   will use multiple gpu if available
@@ -135,11 +131,11 @@ class Basketball():
         return obj, network
 
     def __CNN2DLSTM(self):
-        self.lr = 0.00001
+        self.lr = 0.0001
         if self.num_frames == 55:
-            self.lr = 0.00001
+            self.lr = 0.0001
         elif self.num_frames == 30:
-            self.lr = 0.00001
+            self.lr = 0.0001
         loss = torch.nn.CrossEntropyLoss().to(self.device)
         network = CNN2DLTSM(width=self.width, height=self.width, num_frames=self.num_frames, drop_p=self.drop_p,
                                                 out_features=self.out_features,  num_layers=3)  
@@ -220,19 +216,9 @@ class Basketball():
                 result.append(running_test_loss/total_test)
                 results.append(result)
             print("-------------------------------------")
-        prediction = train_test.predict(self.validation_loader)
         save_path = self.config['output']
         print("")
-        print("Saving Validation results...")
-        save_path_prediction = self.config['predictions']
-        save_path_prediction_result = os.path.join(save_path, save_path_prediction)
-        validationpath = serialize.exportcsv(prediction, modelclass=str(self.num_frames) + "_" + str(self.lr) + "_" + module, path=save_path_prediction_result)
-        print("Done")
-        print("Validating...")
-        validation_result = validation.validate(validationpath)
-        print("Done")
         #print("Saving network...")
-        save_path = self.config['output']
         #save_path_network = self.config['trained_network']
         #save_path_trained_network = os.path.join(save_path, save_path_network)
         #module_saved_path = serialize.save_module(model=network, modelclass=module, path=save_path_trained_network)
@@ -244,8 +230,7 @@ class Basketball():
         print("Saving Results...")
         save_path_results= self.config['results']
         save_path_results = os.path.join(save_path, save_path_results)
-        serialize.save_results(results, modelclass=str(self.num_frames) + "_" + str(self.lr) + "_" +  str(validation_result) + "_" + module, path=save_path_results)
-        #results = serialize.load_results('models\\results\\2020_05_15_12_08_22.csv') # to load the result
+        serialize.save_results(results, modelclass=str(self.num_frames) + "_" + str(self.lr) + "_" + module, path=save_path_results)
         print("Done")
 
     def __runvalidation(self, module, EPOCHS):
@@ -257,19 +242,19 @@ class Basketball():
             running_train_loss = train_validate.train(self.trainset_loader)
             print("")
             print("Training loss: ", running_train_loss/total_train)
-        prediction = train_validate.predict(self.validation_loader)
+            prediction = train_validate.predict(self.validation_loader)
+            pre = validation.validate(prediction)
         save_path = self.config['output']
         print("Saving Validation results...")
         save_path_prediction = self.config['predictions']
         save_path_prediction_result = os.path.join(save_path, save_path_prediction)
-        validationpath = serialize.exportcsv(prediction, modelclass=str(EPOCHS)+"_"+str(self.num_frames) + "_" + str(self.lr) + "_" + module, path=save_path_prediction_result)
+        validationpath = serialize.exportcsv(prediction, modelclass="prediction" + "_" + str(pre) + "_"  + str(EPOCHS)+ "_" +str(self.num_frames) + "_" + str(self.lr) + "_" + module, path=save_path_prediction_result)
         print("Done")
-        # print("Saving network...")
-        # save_path_network = self.config['trained_network']
-        # save_path_trained_network = os.path.join(save_path, save_path_network)
-        # module_saved_path = serialize.save_module(model=network, modelclass=module, path=save_path_trained_network)
-        # print("Done")
-        print("Validating...")
-        validation.validate(validationpath)
+        print("Saving network...")
+        save_path_network = self.config['trained_network']
+        save_path_trained_network = os.path.join(save_path, save_path_network)
+        module_saved_path = serialize.save_module(model=network, modelclass="prediction" + "_" + str(pre) + "_"  + str(EPOCHS)+ "_" + str(self.num_frames) + "_" + str(self.lr) + "_" + module, path=save_path_trained_network)
         print("Done")
 
+    def predict(self):
+        pass

@@ -64,5 +64,6 @@ def exportcsv(dictlist, modelclass, path):
     with open(save_path, 'w', newline='') as f:
         writer = csv.DictWriter(f, delimiter=',', fieldnames=fieldnames)
         writer.writeheader()
-        writer.writerows(dictlist)
+        for i in range(len(dictlist)):
+            writer.writerow({'id': i, 'category': dictlist[i]})
     return save_path
