@@ -2,7 +2,9 @@
 
 import torch
 import sys
+import os
 import time
+import csv
 
 class Traintest():
 
@@ -24,6 +26,7 @@ class Traintest():
         total_time_required = 0
         start = time.time()
         for input, target in trainset:
+            target = torch.tensor([self.ishitormiss(target[0])]).to(self.device)
             input = input.to(self.device)
             target = target.to(self.device)
             self.network.zero_grad()
@@ -51,6 +54,7 @@ class Traintest():
         with torch.no_grad():
             start = time.time()
             for input, target in testset:
+                target = torch.tensor([self.ishitormiss(target[0])]).to(self.device)
                 input = input.to(self.device)
                 target = target.to(self.device)
                 self.network.zero_grad()
@@ -77,19 +81,20 @@ class Traintest():
         with torch.no_grad():
             start = time.time()
             for input, sample in validationset:
+                target = torch.tensor(self.ishitormiss(sample[0]))
                 dictpred = {}
                 input = input.to(self.device)
                 outputs = self.network.forward(input)
                 predicted = torch.argmax(outputs.data, 1)
                 predicted = predicted.item()
-                sample = sample.item()
+                target = target.item()
                 if predicted == 0:
                     category = 'm'
                 elif predicted == 1:
                     category = 'h'
                 else:
                     raise ValueError()
-                dictpred['id'] = sample
+                dictpred['id'] = target
                 dictpred['category'] = category
                 prediction.append(dictpred)
                 running_total += 1
@@ -102,3 +107,14 @@ class Traintest():
     def __print(self, time_required, total_time_required, total, num_samples):
         outstr = 'Time required for last sample: {:.2f}sec. Total time: {:.2f}sec.  Total tests: {}/{}'.format(time_required, total_time_required, total, num_samples)
         sys.stdout.write('\r'+ outstr)
+    
+    def ishitormiss(self, sample):
+        label = None       # it is for validation purpose, 2 indicates validation and no label is available
+        if 'miss' in sample:
+            label = 0
+        elif 'hit' in sample:
+            label = 1
+        else:
+            #raise ValueError('No hit or miss data found.')
+            label = int(os.path.basename(sample))
+        return label

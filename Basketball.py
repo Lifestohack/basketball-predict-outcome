@@ -17,9 +17,10 @@ from networks.CNN3D import CNN3D
 from networks.CNN2DLTSM import CNN2DLTSM
 from networks.TwoStream import TwoStream
 from function import Traintest
+from networks.TrajectoryLSTM import TrajectoryLSTM
 
 class Basketball():
-    def __init__(self, data, width=50, height=50, num_frames=100, split='training'):
+    def __init__(self, data, num_frames, width=50, height=50, split='training', trajectory=False):
         super().__init__()
         if not data or not num_frames:
             raise RuntimeError('Please pass parameter.')
@@ -34,9 +35,10 @@ class Basketball():
         self.lr = 0.001
         self.dense_flow = 'optics' 
         self.train_dense_loader = None
-        self.test_dense_loader = None                                    
+        self.test_dense_loader = None       
+        self.trajectory = trajectory                             
         
-        dataset_training = Dataset.Basketball(self.data, split='training', num_frames = self.num_frames)
+        dataset_training = Dataset.Basketball(self.data, split='training', num_frames = self.num_frames, trajectory=self.trajectory)
         trainset, testset = dataset_training.train_test_split(train_size=0.8)
         self.trainset_loader = DataLoader(trainset, shuffle=True)
         if self.split != 'validation':
@@ -79,6 +81,8 @@ class Basketball():
             obj = self.__CNN2DLSTM()
         elif module=='TWOSTREAM':
             obj = self.__TWOSTREAM()
+        elif module=='LSTM':
+            obj = self.__LSTM()
         else:
             ValueError("Network {} doesnot exists.".format(module))
         return obj
@@ -105,39 +109,39 @@ class Basketball():
             network = nn.DataParallel(network) 
         network.to(self.device)
         optimizer = torch.optim.Adam(network.parameters(), lr=self.lr, weight_decay=0.01)
-        obj = Traintest(self.module, self.device, network, loss, optimizer)
+        obj = Traintest(self.module, self.data, self.device, network, loss, optimizer)
         return obj, network
 
     def __CNN3D(self):
-        self.lr = 0.0001
+        self.lr = 0.001
         if self.num_frames == 55:
             self.lr = 0.0001
         elif self.num_frames == 30:
-            self.lr = 0.0001
+            self.lr = 0.00001
         loss = torch.nn.CrossEntropyLoss().to(self.device)
         network = CNN3D(width=self.width, height=self.height, in_channels=self.channel, num_frames=self.num_frames, out_features=self.out_features, drop_p=self.drop_p) # the shape of input will be Batch x Channel x Depth x Height x Width
         if torch.cuda.device_count() > 1:                                   #   will use multiple gpu if available
             network = nn.DataParallel(network) 
         network.to(self.device)
         optimizer = torch.optim.Adam(network.parameters(), lr=self.lr, weight_decay=0.01)
-        obj = Traintest(self.module, self.device, network, loss, optimizer)
+        obj = Traintest(self.module, self.data, self.device, network, loss, optimizer)
         return obj, network
 
     def __CNN2DLSTM(self):
-        self.lr = 0.0001
+        self.lr = 0.00001
         if self.num_frames == 55:
-            self.lr = 0.0001
+            self.lr = 0.00001
         elif self.num_frames == 30:
-            self.lr = 0.0001
+            self.lr = 0.00001
         loss = torch.nn.CrossEntropyLoss().to(self.device)
         network = CNN2DLTSM(width=self.width, height=self.width, num_frames=self.num_frames, drop_p=self.drop_p,
-                                                out_features=self.out_features, bidirectional=True)  
+                                                out_features=self.out_features,  num_layers=3)  
         if torch.cuda.device_count() > 1:   # will use multiple gpu if available
             network = nn.DataParallel(network)
         network.to(self.device)
         optimizer = torch.optim.Adam(network.parameters(), lr=self.lr, weight_decay=0.01)
-        obj = Traintest(self.module, self.device, network, loss, optimizer)
-        return obj, network
+        obj = Traintest(self.module, self.data, self.device, network, loss, optimizer)
+        return obj, network       
 
     def __TWOSTREAM(self):
         self.lr = 0.0001
@@ -161,7 +165,17 @@ class Basketball():
         network.to(self.device)
         optimizer = torch.optim.Adam(network.parameters(), lr=self.lr, weight_decay=0.01)
         #obj = OPTICALCONV3D.function.OPTICALCONV3DTraintest(self.device, network, loss, optimizer)
-        obj = Traintest(self.module, self.device, network, loss, optimizer)
+        obj = Traintest(self.module, self.data, self.device, network, loss, optimizer)
+        return obj, network
+
+    def __LSTM(self):
+        loss = torch.nn.MSELoss().to(self.device)
+        network = TrajectoryLSTM(self.num_frames)  
+        if torch.cuda.device_count() > 1:   # will use multiple gpu if available
+            network = nn.DataParallel(network)
+        network.to(self.device)
+        optimizer = torch.optim.Adam(network.parameters(), lr=0.001, weight_decay=0.01)
+        obj = Traintest(self.module, self.data, self.device, network, loss, optimizer)
         return obj, network
 
     def __get_opticalflow_view(self, trainset, testset, opticalpath):
@@ -175,7 +189,7 @@ class Basketball():
         return trainset_dense, testset_dense
 
     def __runtraining(self, module, testeverytrain, EPOCHS):
-        print("Starting {} using the data in folder {}.".format(module, self.data ) )
+        print("Starting {} using the data in folder {} for {} Epocs for {} frames.".format(module, self.data, EPOCHS, self.num_frames) )
         train_test, network = self.__module(module)
         print("Learning rate: {}".format(self.lr ) )
         num_parameter = self.__get_n_params(network)
@@ -228,18 +242,20 @@ class Basketball():
         print("Done")
 
     def __runvalidation(self, module, EPOCHS):
-        print("Starting {} using the data in folder {}.".format(module, self.data ) )
+        print("Starting {} using the data in folder {} for {} Epocs for {} frames.".format(module, self.data, EPOCHS, self.num_frames) )
         train_validate, network = self.__module(module)
+        total_train = len(self.trainset_loader.dataset)
         for epoch in range(1, EPOCHS+1):
             print('Epocs: ', epoch)
-            train_validate.train(self.trainset_loader)
+            running_train_loss = train_validate.train(self.trainset_loader)
             print("")
+            print("Training loss: ", running_train_loss/total_train)
         prediction = train_validate.predict(self.validation_loader)
         save_path = self.config['output']
         print("Saving Validation results...")
         save_path_prediction = self.config['predictions']
         save_path_prediction_result = os.path.join(save_path, save_path_prediction)
-        validationpath = serialize.exportcsv(prediction, modelclass=str(self.num_frames) + "_" + str(self.lr) + "_" + module, path=save_path_prediction_result)
+        validationpath = serialize.exportcsv(prediction, modelclass=str(EPOCHS)+"_"+str(self.num_frames) + "_" + str(self.lr) + "_" + module, path=save_path_prediction_result)
         print("Done")
         # print("Saving network...")
         # save_path_network = self.config['trained_network']
