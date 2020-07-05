@@ -5,7 +5,7 @@ from psutil import virtual_memory
 class Cache(object):
     class __Cache:
         def __init__(self):
-            self.__THRESHOLD = 1536 * 1024 * 1024  # in byte
+            self.__THRESHOLD = 0.5  # in GB
             self.__length = 0
             self.__c = {}
 
@@ -16,12 +16,12 @@ class Cache(object):
             else:
                 return (c, True)
 
-        def setcache(self, path, frames, label, ):
-            mem = virtual_memory().available
-            if mem <= self.__THRESHOLD:
-                return
+        def setcache(self, path, frames, label):
             c = self.__c.get(path)
             if c == None:
+                mem = (virtual_memory().available)/(1024 * 1024 * 1024)
+                if mem <= self.__THRESHOLD:
+                    return
                 self.__length += 1
                 value = [frames, label]
                 self.__c[path] = value
