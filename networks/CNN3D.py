@@ -19,6 +19,8 @@ class CNN3D(nn.Module):
         if self.width is None or self.height is None or self.num_frames is None  or self.in_channels is None or self.out_features is None or self.drop_p is None:
             raise RuntimeError('Please provide parameters for CNN3D')
 
+        if self.num_frames <= 15:
+            raise ValueError('CNN3D doesnot support less than 15 frames')
 
         self.ch1, self.ch2, self.ch3, self.ch4, self.ch5 = 16, 32, 64, 128, 256
         self.k1, self.k2, self.k3, self.k4 , self.k5 = (2, 2, 2), (2, 2, 2), (2, 2, 2), (2, 2, 2) , (2, 2, 2)      # 3d kernel size
@@ -51,7 +53,7 @@ class CNN3D(nn.Module):
 
         outshape = self.conv3_outshape
         channel = self.ch3
-        if self.num_frames == 100 or self.num_frames == 55:
+        if self.num_frames >= 32: 
             self.conv4 = nn.Sequential(
                 nn.Conv3d(in_channels=self.ch3, out_channels=self.ch4, kernel_size=self.k4, stride=self.s4, padding=self.pd4),
                 nn.BatchNorm3d(self.ch4),
@@ -61,7 +63,7 @@ class CNN3D(nn.Module):
             self.conv4_outshape = self.__conv3D_output_size(self.conv3_outshape, self.pd4, self.k4, self.s4)
             outshape = self.conv4_outshape
             channel = self.ch4
-            if self.num_frames == 100:
+            if self.num_frames >= 65:
                 self.conv5 = nn.Sequential(
                     nn.Conv3d(in_channels=self.ch4, out_channels=self.ch5, kernel_size=self.k5, stride=self.s5, padding=self.pd5),
                     nn.BatchNorm3d(self.ch5),
@@ -91,9 +93,9 @@ class CNN3D(nn.Module):
         output = self.conv1(input)
         output = self.conv2(output)
         output = self.conv3(output)
-        if self.num_frames == 100 or self.num_frames == 55:
+        if self.num_frames >= 32: 
             output = self.conv4(output)
-            if self.num_frames == 100:
+            if self.num_frames >= 65:
                 output = self.conv5(output)
         output = output.view(1, -1)
         output = self.fc1(output)
