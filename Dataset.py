@@ -19,13 +19,12 @@ import normalize
 # Hit = 1
 # Miss = 2
 class Basketball(torch.utils.data.Dataset):
-    def __init__(self, path, split='training', num_frames=100, trajectory=False):
+    def __init__(self, path, split='training', trajectory=False):
         super().__init__()
         #split = training or validation
         #num_frames = 30, 50 or 100                                                                                                                             
         self.path = path
         self.split = split
-        self.num_frames = num_frames
         self.length = 0
         self.curr_sample = None
         self.sample_num = 0
@@ -38,7 +37,10 @@ class Basketball(torch.utils.data.Dataset):
         # Config parser
         config = configparser.ConfigParser()
         config.read('config.ini')
-        self.config = config['DEFAULT']            
+        self.config = config['DEFAULT']     
+
+    def setFrames(self, frames):
+        self.num_frames = frames       
 
     def setOpticalflow(self, optical):
         self.optical_flow = optical
@@ -55,17 +57,7 @@ class Basketball(torch.utils.data.Dataset):
         item, isavaiable = cache.getcache(self.curr_sample)
         if isavaiable == True:
             end = time.time()
-            #print(end-start)
-            return item[0], item[1]
-        #label = None       # it is for validation purpose, 2 indicates validation and no label is available
-        # if 'miss' in self.curr_sample:
-        #     label = 0
-        # elif 'hit' in self.curr_sample:
-        #     label = 1
-        # else:
-        #     #raise ValueError('No hit or miss data found.')
-        #     label = int(os.path.basename(self.curr_sample))
-        #label = torch.as_tensor(label)
+            return item[0][:self.num_frames], item[1]
         view = None
         view = self.__get_all_views(self.curr_sample)
         if self.optical_flow == True:
@@ -191,6 +183,14 @@ class Basketball(torch.utils.data.Dataset):
         validationsamples = [x for x in self.samples if 'validation' in x]
         self.samples = validationsamples
         self.length = len(validationsamples)
+        meanstd = normalize.calmeanstd(self.path)
+        mean = [0,0,0]
+        std = [0,0,0]
+        for item in self.samples:
+            mean += np.array((meanstd[item][0], meanstd[item][1], meanstd[item][2]))
+            std += np.array((meanstd[item][3], meanstd[item][4], meanstd[item][5]))
+        self.mean = mean/self.length
+        self.std = std/self.length
         return self
 
     def _getpath(self, label=None):

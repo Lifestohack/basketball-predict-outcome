@@ -20,15 +20,15 @@ from function import Traintest
 from networks.TrajectoryLSTM import TrajectoryLSTM
 
 class Basketball():
-    def __init__(self, data, num_frames, width=50, height=50, split='training', trajectory=False):
+    def __init__(self, data, width=50, height=50, split='training', trajectory=False):
         super().__init__()
-        if not data or not num_frames:
+        if not data:
             raise RuntimeError('Please pass parameter.')
         self.data = data
         self.width = width
         self.height = height
-        self.num_frames = num_frames
         self.split = split
+        self.num_frames = 100
         self.channel = 3
         self.drop_p = 0.5
         self.out_features = 2                # only 2 classifier hit or miss
@@ -38,7 +38,7 @@ class Basketball():
         self.test_dense_loader = None       
         self.trajectory = trajectory                             
         
-        dataset_training = Dataset.Basketball(self.data, split='training', num_frames = self.num_frames, trajectory=self.trajectory)
+        dataset_training = Dataset.Basketball(self.data, split='training', trajectory=self.trajectory)
         trainset, testset = dataset_training.train_test_split(train_size=0.8)
         self.trainset_loader = DataLoader(trainset, shuffle=True)
         if self.split != 'validation':
@@ -64,7 +64,14 @@ class Basketball():
         self.config = config['DEFAULT']
         #a = config['trained_network']
 
-    def run(self, module='FFNN', testeverytrain=True, EPOCHS=1):
+    def run(self, num_frames, module='FFNN', testeverytrain=True, EPOCHS=1):
+        if not num_frames:
+            raise RuntimeError('Please pass parameter.')
+        self.num_frames = num_frames
+        self.trainset_loader.dataset.setFrames(self.num_frames)
+        if self.split != 'validation':
+            self.testset_loader.dataset.setFrames(self.num_frames)
+        self.validation_loader.dataset.setFrames(self.num_frames)
         self.module = module
         if self.split == 'training':
             self.__runtraining(module, testeverytrain, EPOCHS)
@@ -115,9 +122,9 @@ class Basketball():
     def __CNN3D(self):
         self.lr = 0.001
         if self.num_frames == 55:
-            self.lr = 0.0001
+            self.lr = 0.001
         elif self.num_frames == 30:
-            self.lr = 0.00001
+            self.lr = 0.0001
         loss = torch.nn.CrossEntropyLoss().to(self.device)
         network = CNN3D(width=self.width, height=self.height, in_channels=self.channel, num_frames=self.num_frames, out_features=self.out_features, drop_p=self.drop_p) # the shape of input will be Batch x Channel x Depth x Height x Width
         if torch.cuda.device_count() > 1:                                   #   will use multiple gpu if available
