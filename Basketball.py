@@ -109,7 +109,7 @@ class Basketball():
             network = nn.DataParallel(network) 
         network.to(self.device)
         optimizer = torch.optim.Adam(network.parameters(), lr=self.lr, weight_decay=0.01)
-        obj = Traintest(self.module, self.data, self.device, network, loss, optimizer)
+        obj = Traintest(self.module, self.device, network, loss, optimizer)
         return obj, network
 
     def __CNN3D(self):
@@ -124,7 +124,7 @@ class Basketball():
             network = nn.DataParallel(network) 
         network.to(self.device)
         optimizer = torch.optim.Adam(network.parameters(), lr=self.lr, weight_decay=0.01)
-        obj = Traintest(self.module, self.data, self.device, network, loss, optimizer)
+        obj = Traintest(self.module, self.device, network, loss, optimizer)
         return obj, network
 
     def __CNN2DLSTM(self):
@@ -140,7 +140,7 @@ class Basketball():
             network = nn.DataParallel(network)
         network.to(self.device)
         optimizer = torch.optim.Adam(network.parameters(), lr=self.lr, weight_decay=0.01)
-        obj = Traintest(self.module, self.data, self.device, network, loss, optimizer)
+        obj = Traintest(self.module, self.device, network, loss, optimizer)
         return obj, network       
 
     def __TWOSTREAM(self):
@@ -165,7 +165,7 @@ class Basketball():
         network.to(self.device)
         optimizer = torch.optim.Adam(network.parameters(), lr=self.lr, weight_decay=0.01)
         #obj = OPTICALCONV3D.function.OPTICALCONV3DTraintest(self.device, network, loss, optimizer)
-        obj = Traintest(self.module, self.data, self.device, network, loss, optimizer)
+        obj = Traintest(self.module, self.device, network, loss, optimizer)
         return obj, network
 
     def __LSTM(self):
@@ -175,7 +175,7 @@ class Basketball():
             network = nn.DataParallel(network)
         network.to(self.device)
         optimizer = torch.optim.Adam(network.parameters(), lr=0.001, weight_decay=0.01)
-        obj = Traintest(self.module, self.data, self.device, network, loss, optimizer)
+        obj = Traintest(self.module, self.device, network, loss, optimizer)
         return obj, network
 
     def __get_opticalflow_view(self, trainset, testset, opticalpath):
