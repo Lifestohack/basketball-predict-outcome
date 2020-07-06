@@ -40,10 +40,8 @@ def calmeanstd(path):
     config = config['DEFAULT']   
     meanstd = config['meanstd']
     optic = config['optic']
-    if optic in path:
-        meanstd = meanstd + "_" + optic
-    meanstd = meanstd + ".csv"
-    save_path = os.path.join(os.path.split(path)[0], meanstd)
+    save_path = path + ".csv"
+    #save_path = os.path.join(os.path.split(path)[0], meanstd)
     if os.path.exists(save_path):
         return readMeanSTDcsv(save_path)
     samples = get_sample_folder_number(path)
@@ -62,6 +60,7 @@ def calmeanstd(path):
         sys.stdout.write('\r'+ outstr)
         csvmeanstd.append((sample, mean[0], mean[1], mean[2], std[0], std[1], std[2]))
     exportMeanSTDcsv(csvmeanstd, save_path)
+    print("")
     return readMeanSTDcsv(save_path)
     
 
