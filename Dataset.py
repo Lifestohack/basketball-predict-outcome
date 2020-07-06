@@ -29,6 +29,7 @@ class Basketball(torch.utils.data.Dataset):
         self.curr_sample = None
         self.sample_num = 0
         self.optical_flow = False
+        self.opticalpath = None
         self.trajectory = trajectory
         self.samples = self._find_videos()
         random.shuffle(self.samples)
@@ -42,26 +43,27 @@ class Basketball(torch.utils.data.Dataset):
     def setFrames(self, frames):
         self.num_frames = frames       
 
-    def setOpticalflow(self, optical):
+    def setOpticalflow(self, optical, path):
         self.optical_flow = optical
+        self.opticalpath = path
     
     def useOpticalflow(self, optical):
         return self.optical_flow
 
     def __getitem__(self, index):
-        start = time.time()
         cache = Cache()
         self.curr_sample = self.samples[index]
         if self.curr_sample is None:
             raise RuntimeError('No testdata on the folder ', index)
         item, isavaiable = cache.getcache(self.curr_sample)
         if isavaiable == True:
-            end = time.time()
             return item[0][:self.num_frames], item[1]
         view = None
         view = self.__get_all_views(self.curr_sample)
         if self.optical_flow == True:
-            curr_sample_optical_flow = self.curr_sample.replace(self.path, 'dataset/optics')
+            if self.opticalpath is None:
+                raise ValueError("No path for optical flow set.")
+            curr_sample_optical_flow = self.curr_sample.replace(self.path, self.opticalpath)
             optical_flow = self.__get_all_views(curr_sample_optical_flow)
             view = torch.stack([view, optical_flow])
         cache.setcache(self.curr_sample, view, self.curr_sample)
@@ -79,7 +81,6 @@ class Basketball(torch.utils.data.Dataset):
                 view1 = torch.FloatTensor(view1)
                 view2 = torch.FloatTensor(view2)
             view = torch.stack([view1, view2])
-            end = time.time()
         else:
             view = self.get_view(self.curr_sample)
             end = time.time()
@@ -242,3 +243,8 @@ class Basketball(torch.utils.data.Dataset):
         else:
             cacheavailable = True
         return cacheavailable
+
+    def destroycache(self):
+        cache = Cache()
+        cache.destroy()
+        del cache
