@@ -6,12 +6,13 @@ import denseflow
 from PIL import Image
 
 class DataMultiProcess():
-    def __init__(self, dataset_path, save_path, create_dense, resize):
+    def __init__(self, dataset_path, save_path, create_dense, resize, removebackground):
         super().__init__()
         self.dataset_path = dataset_path
         self.save_path = save_path
         self.create_dense = create_dense
         self.resize = resize
+        self.removebackground = removebackground
         self.crop_width = 768
         self.crop_height = 384
 
@@ -157,8 +158,8 @@ class DataMultiProcess():
         
         # Saving videos starts here #
         frames = [path.replace(self.dataset_path, self.save_path) for path in frames[0]] # remove data_set path to save_path
-        frames = [path.replace("view1\\", "") for path in frames] # remove view1
-        frames = [path.replace("view2\\", "") for path in frames] # remove view2
+        frames = [path.replace("view1", "") for path in frames] # remove view1
+        frames = [path.replace("view2", "") for path in frames] # remove view2
         self.save_video(combo_video, frames)
 
         if "validation" not in frames[0]:
@@ -205,9 +206,11 @@ class DataMultiProcess():
                 video.append(img)
             # Read images from view ends here #
 
-            # remove the background of the previously read view starts here #
-            removed_background_video = self.remove_background(video)
-            # remove the background of the previously read view starts here #
+            removed_background_video = video
+            if self.removebackground:
+                # remove the background of the previously read view starts here #
+                removed_background_video = self.remove_background(video)
+                # remove the background of the previously read view starts here #
 
             view1 = False
             width = self.crop_width                 # view1 is horizontal video
@@ -245,9 +248,9 @@ class DataMultiProcess():
             mask = backSub.apply(frame)
             if i == 0:
                 continue
-            gmask = cv.morphologyEx(mask, cv.MORPH_OPEN, kernel)
+            mask = cv.morphologyEx(mask, cv.MORPH_OPEN, kernel)
             #gmask = cv.erode(gmask,kernel,iterations = 1)
-            fgMask = gmask[:, :, None] * np.ones(3, dtype=int)[None, None, :]
+            fgMask = mask[:, :, None] * np.ones(3, dtype=int)[None, None, :]
             foreground = frame * (fgMask!=0)
             removed_background.append(foreground)
             #cv.imshow("cropped", foreground)
@@ -290,10 +293,5 @@ class DataMultiProcess():
                 pool.map(self.pipeline, views)    # process data_inputs iterable with pool
                 pass
             finally:                            # To make sure processes are closed in the end, even if errors happen
-                #pool.close()
-                #pool.join()
-                pass
-
-DataMultiProcess('dataset\\orgdata', 'dataset\\data\\samples', False, (64, 128)).start() # For CNN3D and CNN2DLSTM
-#DataMultiProcess('dataset\\orgdata', 'dataset\\data\\samples', True, (64, 128)).start() # For this for Two stream
-#DataMultiProcess('dataset\\orgdata', 'dataset\\data\\samples', False, (24, 48)).start() # Run this for FFNN
+                pool.close()
+                pool.join()
