@@ -99,6 +99,7 @@ class Traintest():
                 time_required = (end-start)
                 total_time_required += time_required
                 self.__print(time_required, total_time_required, running_total, len(validationset.dataset))
+                start = time.time()
         return dictpred
 
     def __print(self, time_required, total_time_required, total, num_samples):
