@@ -82,7 +82,7 @@ class TwoStream(nn.Module):
         
         outshape = self.conv_combo1_outshape
         channel = self.ch5
-        if self.num_frames == 100 or self.num_frames == 55 :
+        if self.num_frames >= 32: 
             self.conv_combo2 = nn.Sequential(
                 nn.Conv3d(in_channels=self.ch5, out_channels=self.ch6, kernel_size=self.k4, stride=self.s4, padding=self.pd4),
                 nn.BatchNorm3d(self.ch6),
@@ -127,7 +127,7 @@ class TwoStream(nn.Module):
     def __combinetwostream(self, cnn3d, optical):
         output = torch.cat([cnn3d, optical], dim=1)
         output = self.conv_combo1(output)
-        if self.num_frames == 100  or self.num_frames == 55 :
+        if self.num_frames >= 32:
             output = self.conv_combo2(output)
         output = output.view(1,-1)
         output = self.fc_combo1(output)
