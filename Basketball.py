@@ -18,13 +18,11 @@ from networks.CNN2DLTSM import CNN2DLTSM
 from networks.TwoStream import TwoStream
 from function import Traintest
 from networks.TrajectoryLSTM import TrajectoryLSTM
+import cache
 
 class Basketball():
-    def __init__(self, data, width=50, height=50, split='training', trajectory=False):
+    def __init__(self, width=48, height=48, split='training', trajectory=False):
         super().__init__()
-        if not data:
-            raise RuntimeError('Please pass parameter.')
-        self.data = data
         self.width = width
         self.height = height
         self.split = split
@@ -36,7 +34,52 @@ class Basketball():
         self.dense_flow = 'optics' 
         self.train_dense_loader = None
         self.test_dense_loader = None       
-        self.trajectory = trajectory                             
+        self.trajectory = trajectory
+        self.background = True
+
+
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+        torch.backends.cudnn.benchmark = True
+
+        # Config parser
+        config = configparser.ConfigParser()
+        config.read('config.ini')
+        self.config = config['DEFAULT']
+        #a = config['trained_network']
+
+    def run(self, num_frames, module='FFNN', testeverytrain=True, EPOCHS=1, lr=0.01, background=True, pretrained=False, pretrainedpath=None):
+        if not num_frames:
+            raise RuntimeError('Please pass parameter.')
+        self.pretrained = pretrained
+        self.pretrainedpath = pretrainedpath
+        if pretrained:
+            if pretrainedpath is None:
+                raise RuntimeError("No path provided for pre trained network.")
+
+        self.data = "dataset"
+        self.opticalpath = self.data
+        if self.background != background:
+            self.destroycache()     # no guarantee when this will happen. just restart jupyter notebook
+        self.background = background
+        self.num_frames = num_frames
+        self.lr = lr
+        self.module = module
+        if module == "FFNN":
+            folder = "48x48"
+        elif module == "CNN2DLSTM" or module == "CNN3D" or module == "TWOSTREAM":
+            folder = "128x128"
+        if module == "TWOSTREAM":
+            folder_opticalpath = "128x128_optic"
+        
+        if background:
+            self.data = os.path.join(self.data, os.path.join("background", folder))   
+            if module == "TWOSTREAM":  
+                self.opticalpath = os.path.join(self.opticalpath, os.path.join("background", folder_opticalpath))    
+        else:
+            self.data = os.path.join(self.data, os.path.join("no_background", folder))   
+            if module == "TWOSTREAM":  
+                self.opticalpath = os.path.join(self.opticalpath, os.path.join("no_background", folder_opticalpath))   
+                            
         
         dataset_training = Dataset.Basketball(self.data, split='training', trajectory=self.trajectory)
         trainset, testset = dataset_training.train_test_split(train_size=0.8)
@@ -55,20 +98,6 @@ class Basketball():
         validation = dataset_training.getvalidation()
         self.validation_loader = DataLoader(validation, shuffle=True)
 
-        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-        torch.backends.cudnn.benchmark = True
-
-        # Config parser
-        config = configparser.ConfigParser()
-        config.read('config.ini')
-        self.config = config['DEFAULT']
-        #a = config['trained_network']
-
-    def run(self, num_frames, module='FFNN', testeverytrain=True, EPOCHS=1, lr=0.01):
-        if not num_frames:
-            raise RuntimeError('Please pass parameter.')
-        self.num_frames = num_frames
-        self.lr = lr
         self.trainset_loader.dataset.setFrames(self.num_frames)
         if self.split != 'validation':
             self.testset_loader.dataset.setFrames(self.num_frames)
@@ -77,7 +106,7 @@ class Basketball():
         if self.split == 'training':
             self.__runtraining(module, testeverytrain, EPOCHS)
         elif self.split == 'validation':
-            self.__runvalidation(module, EPOCHS)
+            self.__runvalidation(module, EPOCHS, pretrained, self.pretrainedpath)
 
     def __module(self, module):
         obj = None
@@ -105,11 +134,6 @@ class Basketball():
         return pp
 
     def __FFNN(self):
-        self.lr = 0.0001
-        if self.num_frames == 55:
-            self.lr = 0.0001
-        elif self.num_frames == 30:
-            self.lr = 0.0001
         loss = torch.nn.CrossEntropyLoss().to(self.device)
         in_features = self.width * self.height * self.channel * self.num_frames #self.trainset_loader.dataset[0][0].numel()
         network = FFNN(in_features=in_features, out_features=self.out_features, drop_p=self.drop_p)
@@ -131,14 +155,9 @@ class Basketball():
         return obj, network
 
     def __CNN2DLSTM(self):
-        self.lr = 0.0001
-        if self.num_frames == 55:
-            self.lr = 0.0001
-        elif self.num_frames == 30:
-            self.lr = 0.0001
         loss = torch.nn.CrossEntropyLoss().to(self.device)
         network = CNN2DLTSM(width=self.width, height=self.width, num_frames=self.num_frames, drop_p=self.drop_p,
-                                                out_features=self.out_features,  num_layers=3)  
+                                                out_features=self.out_features)  
         if torch.cuda.device_count() > 1:   # will use multiple gpu if available
             network = nn.DataParallel(network)
         network.to(self.device)
@@ -147,16 +166,10 @@ class Basketball():
         return obj, network       
 
     def __TWOSTREAM(self):
-        self.lr = 0.0001
-        if self.num_frames == 55:
-            self.lr = 0.0001
-        elif self.num_frames == 30:
-            self.lr = 0.0001
-        
-        self.trainset_loader.dataset.setOpticalflow(True)
+        self.trainset_loader.dataset.setOpticalflow(True, self.opticalpath)
         if self.split == 'training':
-            self.testset_loader.dataset.setOpticalflow(True)
-        self.validation_loader.dataset.setOpticalflow(True)
+            self.testset_loader.dataset.setOpticalflow(True, self.opticalpath)
+        self.validation_loader.dataset.setOpticalflow(True, self.opticalpath)
             
         loss = torch.nn.CrossEntropyLoss().to(self.device)
         if self.dense_flow is None:
@@ -233,28 +246,36 @@ class Basketball():
         serialize.save_results(results, modelclass=str(self.num_frames) + "_" + str(self.lr) + "_" + module, path=save_path_results)
         print("Done")
 
-    def __runvalidation(self, module, EPOCHS):
+    def __runvalidation(self, module, EPOCHS, pretrained, pretrainedpath):
         print("Starting {} using the data in folder {} for {} Epocs for {} frames.".format(module, self.data, EPOCHS, self.num_frames) )
         train_validate, network = self.__module(module)
-        total_train = len(self.trainset_loader.dataset)
-        for epoch in range(1, EPOCHS+1):
-            print('Epocs: ', epoch)
-            running_train_loss = train_validate.train(self.trainset_loader)
-            print("")
-            print("Training loss: ", running_train_loss/total_train)
+        if pretrained:
+            network = serialize.load_module(network, "output/network/prediction_0.55_1_100_0.0001_CNN3D_2020_07_06_05_47_25.pt")
             prediction = train_validate.predict(self.validation_loader)
-            pre = validation.validate(prediction)
+        else:
+            total_train = len(self.trainset_loader.dataset)
+            for epoch in range(1, EPOCHS+1):
+                print('Epocs: ', epoch)
+                running_train_loss = train_validate.train(self.trainset_loader)
+                print("")
+                print("Training loss: ", running_train_loss/total_train)
+                prediction = train_validate.predict(self.validation_loader)
+        pre = validation.validate(prediction)
         save_path = self.config['output']
         print("Saving Validation results...")
         save_path_prediction = self.config['predictions']
         save_path_prediction_result = os.path.join(save_path, save_path_prediction)
         validationpath = serialize.exportcsv(prediction, modelclass="prediction" + "_" + str(pre) + "_"  + str(EPOCHS)+ "_" +str(self.num_frames) + "_" + str(self.lr) + "_" + module, path=save_path_prediction_result)
         print("Done")
-        print("Saving network...")
-        save_path_network = self.config['trained_network']
-        save_path_trained_network = os.path.join(save_path, save_path_network)
-        module_saved_path = serialize.save_module(model=network, modelclass="prediction" + "_" + str(pre) + "_"  + str(EPOCHS)+ "_" + str(self.num_frames) + "_" + str(self.lr) + "_" + module, path=save_path_trained_network)
-        print("Done")
+        if not pretrained:
+            print("Saving network...")
+            save_path_network = self.config['trained_network']
+            save_path_trained_network = os.path.join(save_path, save_path_network)
+            module_saved_path = serialize.save_module(model=network, modelclass="prediction" + "_" + str(pre) + "_"  + str(EPOCHS)+ "_" + str(self.num_frames) + "_" + str(self.lr) + "_" + module, path=save_path_trained_network)
+            print("Done")
 
-    def predict(self):
-        pass
+    def destroycache(self):
+        self.trainset_loader.dataset.destroycache()
+        if self.split == 'training':
+            self.testset_loader.dataset.destroycache()
+        self.validation_loader.dataset.destroycache()
