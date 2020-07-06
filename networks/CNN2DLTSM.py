@@ -6,15 +6,17 @@ import numpy as np
 import torch.nn.functional as F
 
 class CNN2DLTSM(nn.Module):
-    def __init__(self, width, height, num_frames, out_features, num_layers, bidirectional, drop_p=0.5):
+    def __init__(self, width, height, num_frames, out_features, drop_p=0.5):
         super(CNN2DLTSM, self).__init__()
 
         # Encoder
+        self.bidirectional=True
         self.width = width
         self.height = height
         self.encoder_fcout= [512, 256]
         self.decoder_fcin = [256]
         self.hidden_size = 256
+        self.num_layers=3
         
         # Shared variable
         self.num_frames = num_frames
@@ -36,8 +38,7 @@ class CNN2DLTSM(nn.Module):
         self.conv1 = nn.Sequential(
             nn.Conv2d(in_channels=3, out_channels=self.ch1, kernel_size=self.k1, stride=self.s1, padding=self.pd1),
             nn.BatchNorm2d(self.ch1),
-            nn.ReLU(),
-            nn.Dropout2d(p=self.drop_p)                      
+            nn.ReLU(),                   
             #nn.MaxPool2d(kernel_size=2),
         )
         self.conv1_outshape = self.__conv2D_output_size((self.width, self.height), self.pd1, self.k1, self.s1)  # Conv1 output shape
@@ -84,27 +85,15 @@ class CNN2DLTSM(nn.Module):
         # Decoder LSTM Starts #
 
         self.out_features = out_features
-        self.num_layers = num_layers
-        self.bidirectional = bidirectional
-        self.de_fc1_out = self.decoder_fcin[0]
-
-        if self.bidirectional:
-            self.de_fc1_in = 2*self.hidden_size # bidirectional doubles the parameter 
-        self.de_fc1_in = self.de_fc1_in * num_frames
+        self.de_fc1_in = self.decoder_fcin[0] * self.num_frames
 
         self.lstm = nn.LSTM(
             input_size=self.en_out, 
             hidden_size=self.hidden_size, 
             num_layers=self.num_layers, 
-            batch_first=True,
-            bidirectional =self.bidirectional)
+            batch_first=True)
 
-        self.de_fc1 = nn.Sequential(
-            nn.Linear(self.de_fc1_in, self.de_fc1_out),
-            nn.ReLU(),
-            nn.Dropout(p=self.drop_p)
-        )
-        self.de_fc2 = nn.Linear(self.de_fc1_out, self.out_features)
+        self.de_fc1 = nn.Linear(self.de_fc1_in, self.out_features)
 
     def forward(self, input):
         input = self.__resize(input)
@@ -137,7 +126,6 @@ class CNN2DLTSM(nn.Module):
         output, (h_n, h_c) = self.lstm(input, None)  
         output = output.view(1,-1)
         output = self.de_fc1(output)
-        output = self.de_fc2(output)
         return output
 
     def __conv2D_output_size(self, img_size, padding, kernel_size, stride):
