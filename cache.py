@@ -2,11 +2,13 @@
 
 from psutil import virtual_memory
 
+
+# Python garbage collection doesnot allow explicit memory free up.
+
 class Cache(object):
     class __Cache:
         def __init__(self):
-            self.__THRESHOLD = 0.5  # in GB
-            self.__length = 0
+            self.__THRESHOLD = 1  # in GB
             self.__c = {}
 
         def getcache(self, sample):
@@ -22,12 +24,14 @@ class Cache(object):
                 mem = (virtual_memory().available)/(1024 * 1024 * 1024)
                 if mem <= self.__THRESHOLD:
                     return
-                self.__length += 1
                 value = [frames, label]
                 self.__c[path] = value
 
         def getlength(self):
-            return __length
+            return len(self.__c)
+        
+        def destroy(self):
+            self.__c.clear()
 
     instance = None
     def __new__(cls): # __new__ always a classmethod
