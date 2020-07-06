@@ -12,11 +12,10 @@ def save_module(model, modelclass, path):
     timestamp = __get_timestamp()
     save_name = modelclass + '_' + timestamp + '.pt'
     save_path = os.path.join(path, save_name)
-    torch.save(model, save_path)
+    torch.save(model.state_dict(), save_path)
     return save_path
 
-def load_module(CLASS, path):
-    model = CLASS()
+def load_module(model, path):
     model.load_state_dict(torch.load(path))
     model.eval()
     return model
