@@ -37,6 +37,14 @@ def load_results(path):
             results.append(result)
     return results
 
+def get_sample_folder_number(data_path):
+    files = []
+    # r=root, d=directories, f = files
+    for r, d, f in os.walk(data_path):
+        for file in f:
+            files.append(os.path.join(r, file))
+    return files
+
 def get_all_results_names():
     # Config parser
     config = configparser.ConfigParser()
@@ -44,9 +52,10 @@ def get_all_results_names():
     config = config['DEFAULT']
     save_path = config['output']
     result_folder = config['results']
-    save_path_results = os.path.join(save_path, result_folder)
-    result_list = os.listdir(save_path_results)
-    result_list = [os.path.join(save_path_results, result)  for result in result_list]
+    save_path_results = os.path.join(save_path)
+    result_list = get_sample_folder_number(save_path_results)
+    result_list = [x for x in result_list if 'results' in x]
+    result_list = [x for x in result_list if '.directory' not in x]
     return result_list
 
 def __get_timestamp():

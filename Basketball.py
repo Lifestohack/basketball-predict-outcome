@@ -19,10 +19,13 @@ from networks.TwoStream import TwoStream
 from function import Traintest
 from networks.TrajectoryLSTM import TrajectoryLSTM
 import cache
+from networks.Networks import Networks
 
 class Basketball():
-    def __init__(self, width=48, height=48, split='training', trajectory=False):
+    def __init__(self, width=48, height=48, split='training', data=None, trajectory=False):
         super().__init__()
+        if data is None:
+            raise RuntimeError("Please provide dataset path")
         self.width = width
         self.height = height
         self.split = split
@@ -36,8 +39,6 @@ class Basketball():
         self.test_dense_loader = None       
         self.trajectory = trajectory
         self.background = True
-
-
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         torch.backends.cudnn.benchmark = True
 
@@ -45,7 +46,7 @@ class Basketball():
         config = configparser.ConfigParser()
         config.read('config.ini')
         self.config = config['DEFAULT']
-        #a = config['trained_network']
+        #a = self.config['output']
 
     def run(self, num_frames, module='FFNN', testeverytrain=True, EPOCHS=1, lr=0.01, background=True, pretrained=False, pretrainedpath=None):
         if not num_frames:
@@ -55,20 +56,20 @@ class Basketball():
         if pretrained:
             if pretrainedpath is None:
                 raise RuntimeError("No path provided for pre trained network.")
-
-        self.data = "dataset"
+        self.data = self.config['dataset']
         self.opticalpath = self.data
-        if self.background != background:
-            self.destroycache()     # no guarantee when this will happen. just restart jupyter notebook
         self.background = background
         self.num_frames = num_frames
         self.lr = lr
         self.module = module
-        if module == "FFNN":
+        folder = "128x128"
+        if module == Networks.FFNN:
             folder = "48x48"
-        elif module == "CNN2DLSTM" or module == "CNN3D" or module == "TWOSTREAM":
+        elif module == Networks.CNN3D or module == Networks.CNN3D or module == Networks.TWOSTREAM:
             folder = "128x128"
-        if module == "TWOSTREAM":
+        #elif module == Networks.TRAJECTORYLSTM
+        #    folder = "trajectory"
+        if module == Networks.TWOSTREAM:
             folder_opticalpath = "128x128_optic"
         
         if background:
@@ -79,25 +80,17 @@ class Basketball():
             self.data = os.path.join(self.data, os.path.join("no_background", folder))   
             if module == "TWOSTREAM":  
                 self.opticalpath = os.path.join(self.opticalpath, os.path.join("no_background", folder_opticalpath))   
-                            
-        
+
         dataset_training = Dataset.Basketball(self.data, split='training', trajectory=self.trajectory)
         trainset, testset = dataset_training.train_test_split(train_size=0.8)
         self.trainset_loader = DataLoader(trainset, shuffle=True)
         if self.split != 'validation':
             self.testset_loader = DataLoader(testset, shuffle=True)
-
-        # dataset_validation = Dataset.Basketball(self.data, split='validation', num_frames = self.num_frames)
-        # trainset, _ = dataset_validation.train_test_split(train_size=1)
-        # self.trainset_loader = DataLoader(trainset, shuffle=True)
-
         if self.split == 'validation':
             trainset, _ = dataset_training.train_test_split(train_size=1)
             self.trainset_loader = DataLoader(trainset, shuffle=True)
-
         validation = dataset_training.getvalidation()
         self.validation_loader = DataLoader(validation, shuffle=True)
-
         self.trainset_loader.dataset.setFrames(self.num_frames)
         if self.split != 'validation':
             self.testset_loader.dataset.setFrames(self.num_frames)
@@ -110,16 +103,16 @@ class Basketball():
 
     def __module(self, module):
         obj = None
-        if module=='FFNN':
+        if module==Networks.FFNN:
             obj = self.__FFNN()
-        elif module=='CNN3D':
+        elif module==Networks.CNN3D:
             obj = self.__CNN3D()
-        elif module=='CNN2DLSTM':
+        elif module==Networks.CNN2DLSTM:
             obj = self.__CNN2DLSTM()
-        elif module=='TWOSTREAM':
+        elif module==Networks.TWOSTREAM:
             obj = self.__TWOSTREAM()
-        elif module=='LSTM':
-            obj = self.__LSTM()
+        elif module==Networks.TRAJECTORYLSTM:
+            obj = self.__TRAJECTORYLSTM()
         else:
             ValueError("Network {} doesnot exists.".format(module))
         return obj
@@ -184,7 +177,7 @@ class Basketball():
         obj = Traintest(self.module, self.device, network, loss, optimizer)
         return obj, network
 
-    def __LSTM(self):
+    def __TRAJECTORYLSTM(self):
         loss = torch.nn.MSELoss().to(self.device)
         network = TrajectoryLSTM(self.num_frames)  
         if torch.cuda.device_count() > 1:   # will use multiple gpu if available
@@ -242,19 +235,23 @@ class Basketball():
         # 'Epocs', 'total_train', 'running_loss_train', 'total_test', 'correct', 'test_loss', 'saved network'
         print("Saving Results...")
         save_path_results= self.config['results']
-        save_path_results = os.path.join(save_path, save_path_results)
-        serialize.save_results(results, modelclass=str(self.num_frames) + "_" + str(self.lr) + "_" + module, path=save_path_results)
+        backgroundpath = "background"
+        if not self.background:
+            backgroundpath = "no_background"
+        save_path_results = os.path.join(save_path, backgroundpath, save_path_results, module.name, str(self.num_frames))
+        serialize.save_results(results, modelclass=str(EPOCHS) + "_" + str(self.lr) + "_" + module.name, path=save_path_results)
         print("Done")
 
     def __runvalidation(self, module, EPOCHS, pretrained, pretrainedpath):
-        print("Starting {} using the data in folder {} for {} Epocs for {} frames.".format(module, self.data, EPOCHS, self.num_frames) )
+        print("Starting {} using the data in folder {} for {} Epocs for {} frames.".format(module.name, self.data, EPOCHS, self.num_frames) )
         train_validate, network = self.__module(module)
         if pretrained:
-            network = serialize.load_module(network, "output/network/prediction_0.55_1_100_0.0001_CNN3D_2020_07_06_05_47_25.pt")
+            network = serialize.load_module(network, pretrainedpath)
             prediction = train_validate.predict(self.validation_loader)
         else:
             total_train = len(self.trainset_loader.dataset)
             for epoch in range(1, EPOCHS+1):
+                print("")
                 print('Epocs: ', epoch)
                 running_train_loss = train_validate.train(self.trainset_loader)
                 print("")
@@ -264,14 +261,17 @@ class Basketball():
         save_path = self.config['output']
         print("Saving Validation results...")
         save_path_prediction = self.config['predictions']
-        save_path_prediction_result = os.path.join(save_path, save_path_prediction)
-        validationpath = serialize.exportcsv(prediction, modelclass="prediction" + "_" + str(pre) + "_"  + str(EPOCHS)+ "_" +str(self.num_frames) + "_" + str(self.lr) + "_" + module, path=save_path_prediction_result)
+        backgroundpath = "background"
+        if not self.background:
+            backgroundpath = "no_background"
+        save_path_prediction_result = os.path.join(save_path, backgroundpath, save_path_prediction, module, str(self.num_frames))
+        validationpath = serialize.exportcsv(prediction, modelclass=str(pre) + "_"  + str(EPOCHS)+  "_" + str(self.lr) + "_" + module, path=save_path_prediction_result)
         print("Done")
         if not pretrained:
             print("Saving network...")
             save_path_network = self.config['trained_network']
-            save_path_trained_network = os.path.join(save_path, save_path_network)
-            module_saved_path = serialize.save_module(model=network, modelclass="prediction" + "_" + str(pre) + "_"  + str(EPOCHS)+ "_" + str(self.num_frames) + "_" + str(self.lr) + "_" + module, path=save_path_trained_network)
+            save_path_trained_network = os.path.join(save_path, backgroundpath, save_path_network, module, str(self.num_frames))
+            module_saved_path = serialize.save_module(model=network, modelclass=str(pre) + "_"  + str(EPOCHS)+ "_" + str(self.lr) + "_" + module, path=save_path_trained_network)
             print("Done")
 
     def destroycache(self):

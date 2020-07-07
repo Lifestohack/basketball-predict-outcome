@@ -22,7 +22,7 @@ class CNN2DLTSM(nn.Module):
         self.num_frames = num_frames
         self.drop_p = drop_p
 
-        if self.width is None or self.height is None or num_frames is None or out_features is None or num_layers is None or self.drop_p is None:
+        if self.width is None or self.height is None or num_frames is None or out_features is None or self.drop_p is None:
             raise RuntimeError('Please provide parameters for CNN2DLSTM')
 
         # Encoder Conv2d Starts#
