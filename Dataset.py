@@ -57,6 +57,9 @@ class Basketball(torch.utils.data.Dataset):
             raise RuntimeError('No testdata on the folder ', index)
         item, isavaiable = cache.getcache(self.curr_sample)
         if isavaiable == True:
+            num_frame_cache_available = len(item[0][0]) if self.optical_flow == True else len(item[0])
+            if num_frame_cache_available < self.num_frames:
+                raise NotImplementedError("Don't Support running {} frames after running {} frame.".format(self.num_frames, num_frame_cache_available))
             return item[0][:self.num_frames], item[1]
         view = None
         view = self.__get_all_views(self.curr_sample)

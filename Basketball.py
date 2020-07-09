@@ -22,10 +22,8 @@ import cache
 from networks.Networks import Networks
 
 class Basketball():
-    def __init__(self, width=48, height=48, split='training', data=None, trajectory=False):
+    def __init__(self, width=48, height=48, split='training', trajectory=False):
         super().__init__()
-        if data is None:
-            raise RuntimeError("Please provide dataset path")
         self.width = width
         self.height = height
         self.split = split
@@ -34,11 +32,13 @@ class Basketball():
         self.drop_p = 0.5
         self.out_features = 2                # only 2 classifier hit or miss
         self.lr = 0.001
+        self.data = None
         self.dense_flow = 'optics' 
         self.train_dense_loader = None
         self.test_dense_loader = None       
         self.trajectory = trajectory
         self.background = True
+        self.optical = False
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         torch.backends.cudnn.benchmark = True
 
@@ -74,11 +74,11 @@ class Basketball():
         
         if background:
             self.data = os.path.join(self.data, os.path.join("background", folder))   
-            if module == "TWOSTREAM":  
+            if module == Networks.TWOSTREAM:  
                 self.opticalpath = os.path.join(self.opticalpath, os.path.join("background", folder_opticalpath))    
         else:
             self.data = os.path.join(self.data, os.path.join("no_background", folder))   
-            if module == "TWOSTREAM":  
+            if module == Networks.TWOSTREAM: 
                 self.opticalpath = os.path.join(self.opticalpath, os.path.join("no_background", folder_opticalpath))   
 
         dataset_training = Dataset.Basketball(self.data, split='training', trajectory=self.trajectory)
@@ -159,11 +159,11 @@ class Basketball():
         return obj, network       
 
     def __TWOSTREAM(self):
-        self.trainset_loader.dataset.setOpticalflow(True, self.opticalpath)
+        self.optical = True
+        self.trainset_loader.dataset.setOpticalflow(self.optical, self.opticalpath)
         if self.split == 'training':
-            self.testset_loader.dataset.setOpticalflow(True, self.opticalpath)
-        self.validation_loader.dataset.setOpticalflow(True, self.opticalpath)
-            
+            self.testset_loader.dataset.setOpticalflow(self.optical, self.opticalpath)
+        self.validation_loader.dataset.setOpticalflow(self.optical, self.opticalpath)   
         loss = torch.nn.CrossEntropyLoss().to(self.device)
         if self.dense_flow is None:
             raise RuntimeError('Please provide the path to opticalflow data')
@@ -198,14 +198,16 @@ class Basketball():
         return trainset_dense, testset_dense
 
     def __runtraining(self, module, testeverytrain, EPOCHS):
-        print("Starting {} using the data in folder {} for {} Epocs for {} frames.".format(module, self.data, EPOCHS, self.num_frames) )
+        print("Network: {} \nTotal Epocs: {} \nFrames: {}\nLearning rate: {}\nData: {}".format(module.name, EPOCHS, self.num_frames,self.lr, self.data))
         train_test, network = self.__module(module)
-        print("Learning rate: {}".format(self.lr ) )
+        if self.optical == True:
+            print("Optical flow: {}".format(self.opticalpath)) 
         num_parameter = self.__get_n_params(network)
         results = []
         results.append(['epochs','train','trainloss','test','correct','testloss'])
         for epoch in range(1, EPOCHS+1):
             result = []
+            print('+++++++++++++++++++++++++++++')
             print('Epocs: ', epoch)
             total_train = len(self.trainset_loader.dataset)
             total_test = len(self.testset_loader.dataset)
@@ -221,7 +223,6 @@ class Basketball():
                 result.append(correct)
                 result.append(running_test_loss/total_test)
                 results.append(result)
-            print("-------------------------------------")
         save_path = self.config['output']
         print("")
         #print("Saving network...")
@@ -238,40 +239,42 @@ class Basketball():
         backgroundpath = "background"
         if not self.background:
             backgroundpath = "no_background"
-        save_path_results = os.path.join(save_path, backgroundpath, save_path_results, module.name, str(self.num_frames))
+        save_path_results = os.path.join(save_path, backgroundpath, module.name, str(self.num_frames), save_path_results)
         serialize.save_results(results, modelclass=str(EPOCHS) + "_" + str(self.lr) + "_" + module.name, path=save_path_results)
         print("Done")
 
     def __runvalidation(self, module, EPOCHS, pretrained, pretrainedpath):
-        print("Starting {} using the data in folder {} for {} Epocs for {} frames.".format(module.name, self.data, EPOCHS, self.num_frames) )
-        train_validate, network = self.__module(module)
+        print("Network: {} \nTotal Epocs: {} \nFrames: {}\nLearning rate: {}\nData: {}".format(module.name, EPOCHS, self.num_frames,self.lr, self.data))
+        train_test, network = self.__module(module)
+        if self.optical == True:
+            print("Optical flow: {}".format(self.opticalpath)) 
+        pre = None
         if pretrained:
             network = serialize.load_module(network, pretrainedpath)
             prediction = train_validate.predict(self.validation_loader)
         else:
             total_train = len(self.trainset_loader.dataset)
             for epoch in range(1, EPOCHS+1):
-                print("")
                 print('Epocs: ', epoch)
                 running_train_loss = train_validate.train(self.trainset_loader)
                 print("")
                 print("Training loss: ", running_train_loss/total_train)
                 prediction = train_validate.predict(self.validation_loader)
-        pre = validation.validate(prediction)
+                pre = validation.validate(prediction)
         save_path = self.config['output']
         print("Saving Validation results...")
         save_path_prediction = self.config['predictions']
         backgroundpath = "background"
         if not self.background:
             backgroundpath = "no_background"
-        save_path_prediction_result = os.path.join(save_path, backgroundpath, save_path_prediction, module, str(self.num_frames))
-        validationpath = serialize.exportcsv(prediction, modelclass=str(pre) + "_"  + str(EPOCHS)+  "_" + str(self.lr) + "_" + module, path=save_path_prediction_result)
+        save_path_prediction_result = os.path.join(save_path, backgroundpath, module.name, str(self.num_frames), save_path_prediction)
+        validationpath = serialize.exportcsv(prediction, modelclass=str(pre) + "_"  + str(EPOCHS)+  "_" + str(self.lr) + "_" + module.name, path=save_path_prediction_result)
         print("Done")
         if not pretrained:
             print("Saving network...")
             save_path_network = self.config['trained_network']
-            save_path_trained_network = os.path.join(save_path, backgroundpath, save_path_network, module, str(self.num_frames))
-            module_saved_path = serialize.save_module(model=network, modelclass=str(pre) + "_"  + str(EPOCHS)+ "_" + str(self.lr) + "_" + module, path=save_path_trained_network)
+            save_path_trained_network = os.path.join(save_path, backgroundpath, module.name, str(self.num_frames), save_path_network)
+            module_saved_path = serialize.save_module(model=network, modelclass=str(pre) + "_"  + str(EPOCHS)+ "_" + str(self.lr) + "_" + module.name, path=save_path_trained_network)
             print("Done")
 
     def destroycache(self):
