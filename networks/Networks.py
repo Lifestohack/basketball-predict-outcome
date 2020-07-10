@@ -7,4 +7,5 @@ class Networks(Enum):
     CNN3D = 2
     CNN2DLSTM = 3
     TWOSTREAM = 4
-    TRAJECTORYLSTM = 5
+    TRAJECTORYFFNN = 5
+    TRAJECTORYLSTM = 6

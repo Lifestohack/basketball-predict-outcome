@@ -27,7 +27,7 @@ from networks.Networks import Networks
 start_time = time.time()
 
 # **********************<Variables>**********************************
-Epocs = 20
+Epocs = 50
 
 # size of the image that will be feed into the network
 width = 128
@@ -40,11 +40,13 @@ height_ffnn=48
 
 # [training and test] or validating??
 # possible values = validation, training
-split = 'training'
+split = 'validation'
 print("**************************** {} STARTED ******************************************".format(split.upper()))
 # the network you want to use
-# Options are FFNN, CNN3D, CNN2DLSTM, TWOSTREAM and TRAJECTORYLSTM
-network = Networks.TWOSTREAM
+# Options are 
+# FFNN, CNN3D, CNN2DLSTM, TWOSTREAM, TRAJECTORYFFNN uses images 
+# TRAJECTORYFFNN, TRAJECTORYLSTM uses CSV file
+network = Networks.TRAJECTORYFFNN
 
 if network == Networks.FFNN:
     if width_ffnn is not None and height_ffnn is not None:
@@ -52,27 +54,26 @@ if network == Networks.FFNN:
         height = height_ffnn
 
 # Create first the Basketball object
-dp = Basketball.Basketball(width=width, height=height, split=split)
+#dp = Basketball.Basketball(width=width, height=height, split=split)
 
 # Using co-ordinate of basketball instead of images.
 # For this please use balldetection.m file. 
 # Open the file in matlab and give the path to the original dataset. 
 # The output of the matlab file, please copy it to the dataset folder of this project under "trajectory" folder
-# if network == Networks.TRAJECTORYLSTM:
-#   trajectory = True
-# dp = Basketball.Basketball(width=width, height=height, split=split, trajectory=True)
+trajectory = True if network==Networks.TRAJECTORYFFNN else False
+dp = Basketball.Basketball(width=width, height=height, split=split, trajectory=trajectory)
 
 # **************************</Variables>******************************
 
 #*********************<Train or validate>****************************
 # Two dataset options are available. 
 # One with background and one without background
-background = False
+background = True
 
 # Maximum number of frames that are available per sample
 max_frames = 100
 
-if background == False and max_frames > 99:
+if (background == False and max_frames > 99) or trajectory == True:
     print("For dataset where background has been removed, maximum of 99 frames are available but you requested {} frames. Using 99 frames instead.".format(max_frames))
     max_frames = 99
 
@@ -89,6 +90,8 @@ elif network == Networks.CNN2DLSTM:
         lr=0.000001
 elif network == Networks.TWOSTREAM:
     lr=0.0001
+elif network == Networks.TRAJECTORYFFNN:
+    lr=0.00001
 elif network == Networks.TRAJECTORYLSTM:
     lr=0.0001
 
@@ -103,7 +106,7 @@ dp.run(30, network, testeverytrain=testeverytrain, EPOCHS=Epocs, lr=lr, backgrou
 # if only validation is required using pretrained network then
 #split = 'validation'
 #pretrained = True 
-#pretrainedpath = "output/network/prediction_0.55_1_100_0.0001_CNN3D_2020_07_06_05_47_25.pt"
+#pretrainedpath = "path/to/pretrainednetwork.pt"
 #dp.run(30, network, testeverytrain=True, EPOCHS=Epocs, lr=lr, background=background, pretrained=pretrained, pretrainedpath=pretrainedpath) 
 #*********************</Train or validate>****************************
 

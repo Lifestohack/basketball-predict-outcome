@@ -17,6 +17,7 @@ from networks.CNN3D import CNN3D
 from networks.CNN2DLTSM import CNN2DLTSM
 from networks.TwoStream import TwoStream
 from function import Traintest
+from networks.TrajectoryFFNN import TrajectoryFFNN
 from networks.TrajectoryLSTM import TrajectoryLSTM
 import cache
 from networks.Networks import Networks
@@ -67,19 +68,22 @@ class Basketball():
             folder = "48x48"
         elif module == Networks.CNN3D or module == Networks.CNN3D or module == Networks.TWOSTREAM:
             folder = "128x128"
-        #elif module == Networks.TRAJECTORYLSTM
-        #    folder = "trajectory"
         if module == Networks.TWOSTREAM:
             folder_opticalpath = "128x128_optic"
+        if self.trajectory == True:
+            folder = "trajectory"
         
-        if background:
-            self.data = os.path.join(self.data, os.path.join("background", folder))   
-            if module == Networks.TWOSTREAM:  
-                self.opticalpath = os.path.join(self.opticalpath, os.path.join("background", folder_opticalpath))    
-        else:
-            self.data = os.path.join(self.data, os.path.join("no_background", folder))   
-            if module == Networks.TWOSTREAM: 
-                self.opticalpath = os.path.join(self.opticalpath, os.path.join("no_background", folder_opticalpath))   
+        if self.trajectory == False:
+            if background:
+                self.data = os.path.join(self.data, os.path.join("background", folder))   
+                if module == Networks.TWOSTREAM:  
+                    self.opticalpath = os.path.join(self.opticalpath, os.path.join("background", folder_opticalpath))    
+            else:
+                self.data = os.path.join(self.data, os.path.join("no_background", folder))   
+                if module == Networks.TWOSTREAM: 
+                    self.opticalpath = os.path.join(self.opticalpath, os.path.join("no_background", folder_opticalpath))
+        elif self.trajectory == True:
+            self.data = os.path.join(self.data, folder)         
 
         dataset_training = Dataset.Basketball(self.data, split='training', trajectory=self.trajectory)
         trainset, testset = dataset_training.train_test_split(train_size=0.8)
@@ -111,6 +115,8 @@ class Basketball():
             obj = self.__CNN2DLSTM()
         elif module==Networks.TWOSTREAM:
             obj = self.__TWOSTREAM()
+        elif module==Networks.TRAJECTORYFFNN:
+            obj = self.__TRAJECTORYFFNN()
         elif module==Networks.TRAJECTORYLSTM:
             obj = self.__TRAJECTORYLSTM()
         else:
@@ -177,6 +183,18 @@ class Basketball():
         obj = Traintest(self.module, self.device, network, loss, optimizer)
         return obj, network
 
+    def __TRAJECTORYFFNN(self):
+        loss = torch.nn.CrossEntropyLoss().to(self.device)
+        #in_features = self.width * self.height * self.channel * self.num_frames #self.trainset_loader.dataset[0][0].numel()
+        in_features = self.trainset_loader.dataset[0][0].numel()
+        network = TrajectoryFFNN(in_features=in_features, out_features=self.out_features, drop_p=self.drop_p)
+        if torch.cuda.device_count() > 1:   # will use multiple gpu if available
+            network = nn.DataParallel(network) 
+        network.to(self.device)
+        optimizer = torch.optim.Adam(network.parameters(), lr=self.lr, weight_decay=0.01)
+        obj = Traintest(self.module, self.device, network, loss, optimizer)
+        return obj, network
+
     def __TRAJECTORYLSTM(self):
         loss = torch.nn.MSELoss().to(self.device)
         network = TrajectoryLSTM(self.num_frames)  
@@ -236,16 +254,19 @@ class Basketball():
         # 'Epocs', 'total_train', 'running_loss_train', 'total_test', 'correct', 'test_loss', 'saved network'
         print("Saving Results...")
         save_path_results= self.config['results']
-        backgroundpath = "background"
-        if not self.background:
-            backgroundpath = "no_background"
+        backgroundpath = "trajectory"
+        if self.trajectory == False:
+            if self.background == True:
+                backgroundpath = "background"
+            elif self.background == False:
+                backgroundpath = "no_background"
         save_path_results = os.path.join(save_path, backgroundpath, module.name, str(self.num_frames), save_path_results)
         serialize.save_results(results, modelclass=str(EPOCHS) + "_" + str(self.lr) + "_" + module.name, path=save_path_results)
         print("Done")
 
     def __runvalidation(self, module, EPOCHS, pretrained, pretrainedpath):
         print("Network: {} \nTotal Epocs: {} \nFrames: {}\nLearning rate: {}\nData: {}".format(module.name, EPOCHS, self.num_frames,self.lr, self.data))
-        train_test, network = self.__module(module)
+        train_validate, network = self.__module(module)
         if self.optical == True:
             print("Optical flow: {}".format(self.opticalpath)) 
         pre = None
@@ -264,9 +285,12 @@ class Basketball():
         save_path = self.config['output']
         print("Saving Validation results...")
         save_path_prediction = self.config['predictions']
-        backgroundpath = "background"
-        if not self.background:
-            backgroundpath = "no_background"
+        backgroundpath = "trajectory"
+        if self.trajectory == False:
+            if self.background == True:
+                backgroundpath = "background"
+            elif self.background == False:
+                backgroundpath = "no_background"
         save_path_prediction_result = os.path.join(save_path, backgroundpath, module.name, str(self.num_frames), save_path_prediction)
         validationpath = serialize.exportcsv(prediction, modelclass=str(pre) + "_"  + str(EPOCHS)+  "_" + str(self.lr) + "_" + module.name, path=save_path_prediction_result)
         print("Done")

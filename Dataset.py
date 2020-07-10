@@ -57,10 +57,15 @@ class Basketball(torch.utils.data.Dataset):
             raise RuntimeError('No testdata on the folder ', index)
         item, isavaiable = cache.getcache(self.curr_sample)
         if isavaiable == True:
-            num_frame_cache_available = len(item[0][0]) if self.optical_flow == True else len(item[0])
+            num_frame_cache_available = None
+            if self.trajectory == True:
+                num_frame_cache_available = len(item[0][0])
+            else:
+                num_frame_cache_available = len(item[0][0]) if self.optical_flow == True else len(item[0])
             if num_frame_cache_available < self.num_frames:
                 raise NotImplementedError("Don't Support running {} frames after running {} frame.".format(self.num_frames, num_frame_cache_available))
-            return item[0][:self.num_frames], item[1]
+            view = torch.stack([item[0][0][:self.num_frames], item[0][1][:self.num_frames]]) if self.optical_flow == True else item[0][:self.num_frames]
+            return view, item[1]
         view = None
         view = self.__get_all_views(self.curr_sample)
         if self.optical_flow == True:
@@ -152,7 +157,7 @@ class Basketball(torch.utils.data.Dataset):
         misstestamples = misssamples[missnum:] 
         train = hittrainsamples + misstrainsamples
         test = hittestamples + misstestamples
-        meanstd = normalize.calmeanstd(self.path)
+        meanstd = normalize.calmeanstd(self.path, self.trajectory)
         trainobj = copy.deepcopy(self)
         trainobj.samples = train
         trainobj.samples = [i for i in trainobj.samples]
@@ -161,8 +166,12 @@ class Basketball(torch.utils.data.Dataset):
         mean = [0,0,0]
         std = [0,0,0]
         for item in trainobj.samples:
-            mean += np.array((meanstd[item][0], meanstd[item][1], meanstd[item][2]))
-            std += np.array((meanstd[item][3], meanstd[item][4], meanstd[item][5]))
+            if self.trajectory == True:
+                mean += np.array((meanstd[item][0]))
+                std += np.array((meanstd[item][1]))
+            else:
+                mean += np.array((meanstd[item][0], meanstd[item][1], meanstd[item][2]))
+                std += np.array((meanstd[item][3], meanstd[item][4], meanstd[item][5]))
         trainobj.mean = mean/trainobj.length
         trainobj.std = std/trainobj.length
 
@@ -176,8 +185,12 @@ class Basketball(torch.utils.data.Dataset):
             mean = [0,0,0]
             std = [0,0,0]
             for item in testobj.samples:
-                mean += np.array((meanstd[item][0], meanstd[item][1], meanstd[item][2]))
-                std += np.array((meanstd[item][3], meanstd[item][4], meanstd[item][5]))
+                if self.trajectory == True:
+                    mean += np.array((meanstd[item][0]))
+                    std += np.array((meanstd[item][1]))
+                else:
+                    mean += np.array((meanstd[item][0], meanstd[item][1], meanstd[item][2]))
+                    std += np.array((meanstd[item][3], meanstd[item][4], meanstd[item][5]))
             testobj.mean = mean/testobj.length
             testobj.std = std/testobj.length
 
@@ -187,12 +200,16 @@ class Basketball(torch.utils.data.Dataset):
         validationsamples = [x for x in self.samples if 'validation' in x]
         self.samples = validationsamples
         self.length = len(validationsamples)
-        meanstd = normalize.calmeanstd(self.path)
+        meanstd = normalize.calmeanstd(self.path, self.trajectory)
         mean = [0,0,0]
         std = [0,0,0]
         for item in self.samples:
-            mean += np.array((meanstd[item][0], meanstd[item][1], meanstd[item][2]))
-            std += np.array((meanstd[item][3], meanstd[item][4], meanstd[item][5]))
+            if self.trajectory == True:
+                mean += np.array((meanstd[item][0]))
+                std += np.array((meanstd[item][1]))
+            else:
+                mean += np.array((meanstd[item][0], meanstd[item][1], meanstd[item][2]))
+                std += np.array((meanstd[item][3], meanstd[item][4], meanstd[item][5]))
         self.mean = mean/self.length
         self.std = std/self.length
         return self
