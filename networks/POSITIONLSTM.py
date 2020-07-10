@@ -3,7 +3,7 @@
 import torch
 import torch.nn as nn
 
-class TrajectoryLSTM(nn.Module):
+class POSITIONLSTM(nn.Module):
     # input_size = 4 # frame number, x, y, radius <- four values
     # output_size = 4 also predicted output the same size
     def __init__(self, num_frames, input_size=4, hidden_layer_size=100, output_size=4):

@@ -3,7 +3,7 @@
 import torch
 import torch.nn as nn
 
-class TrajectoryFFNN(nn.Module):
+class POSITIONFFNN(nn.Module):
     def __init__(self, in_features, out_features, drop_p=0.5, bias=False):
         super().__init__()
         self.in_features = in_features
@@ -15,26 +15,35 @@ class TrajectoryFFNN(nn.Module):
         self.fcout3 = self.fcout2//2
 
         self.fc1  = nn.Sequential(
-            nn.Linear(self.in_features, self.fcout1, self.bias),
+            nn.Linear(self.in_features, self.in_features, self.bias),
             nn.ReLU(inplace=True),
         )
+        
         self.fc2  = nn.Sequential(
-            nn.Linear(self.fcout1, self.fcout2, self.bias),
+            nn.Linear(self.in_features, self.fcout1, self.bias),
             nn.ReLU(inplace=True),
             nn.Dropout(self.drop_p)
         )
         self.fc3  = nn.Sequential(
-            nn.Linear(self.fcout2, self.fcout3, self.bias),
+            nn.Linear(self.fcout1, self.fcout2, self.bias),
             nn.ReLU(inplace=True),
             nn.Dropout(self.drop_p)
         )
+
+        self.fc3  = nn.Sequential(
+            nn.Linear(self.fcout1, self.fcout3, self.bias),
+            nn.ReLU(inplace=True),
+            nn.Dropout(self.drop_p)
+        )
+
         self.fc4  = nn.Linear(self.fcout3, self.out_features, self.bias)
 
 
     def forward(self, input):
         input = self.__resize(input)
-        output = self.fc1(input)
-        output = self.fc2(output)
+        for i in range(10):
+            input = self.fc1(input)
+        output = self.fc2(input)
         output = self.fc3(output)
         output = self.fc4(output)
         return output

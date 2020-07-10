@@ -17,8 +17,8 @@ from networks.CNN3D import CNN3D
 from networks.CNN2DLTSM import CNN2DLTSM
 from networks.TwoStream import TwoStream
 from function import Traintest
-from networks.TrajectoryFFNN import TrajectoryFFNN
-from networks.TrajectoryLSTM import TrajectoryLSTM
+from networks.POSITIONFFNN import POSITIONFFNN
+from networks.POSITIONLSTM import POSITIONLSTM
 import cache
 from networks.Networks import Networks
 
@@ -115,10 +115,10 @@ class Basketball():
             obj = self.__CNN2DLSTM()
         elif module==Networks.TWOSTREAM:
             obj = self.__TWOSTREAM()
-        elif module==Networks.TRAJECTORYFFNN:
-            obj = self.__TRAJECTORYFFNN()
-        elif module==Networks.TRAJECTORYLSTM:
-            obj = self.__TRAJECTORYLSTM()
+        elif module==Networks.POSITIONFFNN:
+            obj = self.__POSITIONFFNN()
+        elif module==Networks.POSITIONLSTM:
+            obj = self.__POSITIONLSTM()
         else:
             ValueError("Network {} doesnot exists.".format(module))
         return obj
@@ -183,11 +183,11 @@ class Basketball():
         obj = Traintest(self.module, self.device, network, loss, optimizer)
         return obj, network
 
-    def __TRAJECTORYFFNN(self):
+    def __POSITIONFFNN(self):
         loss = torch.nn.CrossEntropyLoss().to(self.device)
         #in_features = self.width * self.height * self.channel * self.num_frames #self.trainset_loader.dataset[0][0].numel()
         in_features = self.trainset_loader.dataset[0][0].numel()
-        network = TrajectoryFFNN(in_features=in_features, out_features=self.out_features, drop_p=self.drop_p)
+        network = POSITIONFFNN(in_features=in_features, out_features=self.out_features, drop_p=self.drop_p)
         if torch.cuda.device_count() > 1:   # will use multiple gpu if available
             network = nn.DataParallel(network) 
         network.to(self.device)
@@ -195,9 +195,9 @@ class Basketball():
         obj = Traintest(self.module, self.device, network, loss, optimizer)
         return obj, network
 
-    def __TRAJECTORYLSTM(self):
+    def __POSITIONLSTM(self):
         loss = torch.nn.MSELoss().to(self.device)
-        network = TrajectoryLSTM(self.num_frames)  
+        network = POSITIONLSTM(self.num_frames)  
         if torch.cuda.device_count() > 1:   # will use multiple gpu if available
             network = nn.DataParallel(network)
         network.to(self.device)

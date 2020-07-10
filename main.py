@@ -27,7 +27,7 @@ from networks.Networks import Networks
 start_time = time.time()
 
 # **********************<Variables>**********************************
-Epocs = 50
+Epocs = 100
 
 # size of the image that will be feed into the network
 width = 128
@@ -40,13 +40,13 @@ height_ffnn=48
 
 # [training and test] or validating??
 # possible values = validation, training
-split = 'validation'
+split = 'training'
 print("**************************** {} STARTED ******************************************".format(split.upper()))
 # the network you want to use
 # Options are 
-# FFNN, CNN3D, CNN2DLSTM, TWOSTREAM, TRAJECTORYFFNN uses images 
-# TRAJECTORYFFNN, TRAJECTORYLSTM uses CSV file
-network = Networks.TRAJECTORYFFNN
+# FFNN, CNN3D, CNN2DLSTM, TWOSTREAM uses images 
+# POSITIONFFNN, POSITIONLSTM uses CSV file
+network = Networks.POSITIONFFNN
 
 if network == Networks.FFNN:
     if width_ffnn is not None and height_ffnn is not None:
@@ -60,7 +60,9 @@ if network == Networks.FFNN:
 # For this please use balldetection.m file. 
 # Open the file in matlab and give the path to the original dataset. 
 # The output of the matlab file, please copy it to the dataset folder of this project under "trajectory" folder
-trajectory = True if network==Networks.TRAJECTORYFFNN else False
+trajectory = True if network==Networks.POSITIONFFNN else False
+if trajectory == True and network != Networks.POSITIONFFNN:
+    raise ValueError("{} doesnot support position values. Use {} instead.".format(network, Networks.POSITIONFFNN))
 dp = Basketball.Basketball(width=width, height=height, split=split, trajectory=trajectory)
 
 # **************************</Variables>******************************
@@ -90,9 +92,9 @@ elif network == Networks.CNN2DLSTM:
         lr=0.000001
 elif network == Networks.TWOSTREAM:
     lr=0.0001
-elif network == Networks.TRAJECTORYFFNN:
+elif network == Networks.POSITIONFFNN:
     lr=0.00001
-elif network == Networks.TRAJECTORYLSTM:
+elif network == Networks.POSITIONLSTM:
     lr=0.0001
 
 # if after every training, testing should be done then use
