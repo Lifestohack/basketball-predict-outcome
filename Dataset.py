@@ -15,6 +15,10 @@ import sys
 import configparser
 import numpy as np
 import normalize
+from sklearn.preprocessing import MinMaxScaler
+
+
+
 # Classifier
 # Hit = 1
 # Miss = 2
@@ -87,9 +91,6 @@ class Basketball(torch.utils.data.Dataset):
             view2path = os.path.join(self.curr_sample, views[1])
             view1 = self.get_view(view1path)
             view2 = self.get_view(view2path)
-            if self.trajectory:
-                view1 = torch.FloatTensor(view1)
-                view2 = torch.FloatTensor(view2)
             view = torch.stack([view1, view2])
         else:
             view = self.get_view(self.curr_sample)
@@ -122,7 +123,16 @@ class Basketball(torch.utils.data.Dataset):
             path_to_read = os.path.join(path, frame)
             if self.trajectory:
                 with open(path_to_read, newline='') as csvfile:
-                    frames_data = [list(map(float, row)) for row in csv.reader(csvfile)]
+                    frames_data = [list(map(float, row)) for row in csv.reader(csvfile)] 
+                    frames_data = torch.FloatTensor(frames_data).unsqueeze(dim=0)
+                    tensornormalize = torchvision.transforms.Compose([
+                        torchvision.transforms.Normalize(mean=self.mean[0], std=self.std[0])
+                    ])
+                    frames_data = tensornormalize(frames_data).squeeze()
+                    scaler = MinMaxScaler(feature_range=(0, 1))
+                    frames_data = scaler.fit_transform(frames_data)
+                    frames_data = torch.FloatTensor(frames_data)
+                    pass
             else:
                 img = Image.open(path_to_read)     # may be in future will save the processed images as tensor and not as image
                 tensornormalize = torchvision.transforms.Compose([

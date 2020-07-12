@@ -4,13 +4,14 @@ import torch
 import torch.nn as nn
 
 class POSITIONFFNN(nn.Module):
-    def __init__(self, in_features, out_features, drop_p=0.5, bias=True):
+    def __init__(self, num_frames, out_features):
         super().__init__()
-        self.in_features = in_features
+        self.num_frames = num_frames
+        self.in_features = 2 * self.num_frames * 4
         self.out_features = out_features
         self.drop_p = 0.2
-        self.bias = bias
-        self.fcout1 = in_features//2
+        self.bias = True
+        self.fcout1 = self.in_features//2
         self.fcout2 = self.fcout1//2
         self.fcout3 = self.fcout2//2
 
@@ -33,11 +34,12 @@ class POSITIONFFNN(nn.Module):
 
     def forward(self, input):
         input = self.__resize(input)
-        input = self.fc1(input)
-        output = self.fc2(input)
+        output = self.fc1(input)
+        output = self.fc2(output)
         output = self.fc3(output)
         output = self.fc4(output)
         return output
 
     def __resize(self, input):
-        return input.reshape(1,-1)
+        output = torch.stack([input.squeeze()[0][:self.num_frames], input.squeeze()[1][:self.num_frames]]).unsqueeze(dim=0)
+        return output.view(1, -1)

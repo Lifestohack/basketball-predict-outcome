@@ -27,7 +27,7 @@ from networks.Networks import Networks
 start_time = time.time()
 
 # **********************<Variables>**********************************
-Epocs = 100
+Epocs = 50
 
 # size of the image that will be feed into the network
 width = 128
@@ -93,7 +93,7 @@ elif network == Networks.CNN2DLSTM:
 elif network == Networks.TWOSTREAM:
     lr=0.0001
 elif network == Networks.POSITIONFFNN:
-    lr=0.0001
+    lr=0.00001
 elif network == Networks.POSITIONLSTM:
     lr=0.00001
 

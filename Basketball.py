@@ -187,8 +187,8 @@ class Basketball():
     def __POSITIONFFNN(self):
         loss = torch.nn.CrossEntropyLoss().to(self.device)
         #in_features = self.width * self.height * self.channel * self.num_frames #self.trainset_loader.dataset[0][0].numel()
-        in_features = self.trainset_loader.dataset[0][0].numel()
-        network = POSITIONFFNN(in_features=in_features, out_features=self.out_features, drop_p=self.drop_p)
+        #in_features = self.trainset_loader.dataset[0][0].numel()
+        network = POSITIONFFNN(self.num_frames, self.out_features)
         if torch.cuda.device_count() > 1:   # will use multiple gpu if available
             network = nn.DataParallel(network) 
         network.to(self.device)
