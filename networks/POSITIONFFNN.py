@@ -4,11 +4,11 @@ import torch
 import torch.nn as nn
 
 class POSITIONFFNN(nn.Module):
-    def __init__(self, in_features, out_features, drop_p=0.5, bias=False):
+    def __init__(self, in_features, out_features, drop_p=0.5, bias=True):
         super().__init__()
         self.in_features = in_features
         self.out_features = out_features
-        self.drop_p = drop_p
+        self.drop_p = 0.2
         self.bias = bias
         self.fcout1 = in_features//2
         self.fcout2 = self.fcout1//2
@@ -16,9 +16,8 @@ class POSITIONFFNN(nn.Module):
 
         self.fc1  = nn.Sequential(
             nn.Linear(self.in_features, self.in_features, self.bias),
-            nn.ReLU(inplace=True),
+            nn.ReLU(inplace=True)
         )
-        
         self.fc2  = nn.Sequential(
             nn.Linear(self.in_features, self.fcout1, self.bias),
             nn.ReLU(inplace=True),
@@ -29,20 +28,12 @@ class POSITIONFFNN(nn.Module):
             nn.ReLU(inplace=True),
             nn.Dropout(self.drop_p)
         )
-
-        self.fc3  = nn.Sequential(
-            nn.Linear(self.fcout1, self.fcout3, self.bias),
-            nn.ReLU(inplace=True),
-            nn.Dropout(self.drop_p)
-        )
-
-        self.fc4  = nn.Linear(self.fcout3, self.out_features, self.bias)
+        self.fc4  = nn.Linear(self.fcout2, self.out_features, self.bias)
 
 
     def forward(self, input):
         input = self.__resize(input)
-        for i in range(10):
-            input = self.fc1(input)
+        input = self.fc1(input)
         output = self.fc2(input)
         output = self.fc3(output)
         output = self.fc4(output)

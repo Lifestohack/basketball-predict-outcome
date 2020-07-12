@@ -2,42 +2,96 @@
 
 import torch
 import torch.nn as nn
+import numpy as numpy
 
 class POSITIONLSTM(nn.Module):
-    # input_size = 4 # frame number, x, y, radius <- four values
-    # output_size = 4 also predicted output the same size
-    def __init__(self, num_frames, input_size=4, hidden_layer_size=100, output_size=4):
+    def __init__(self, num_frames, in_features):
         super().__init__()
-        self.num_frames = num_frames
-        self.hidden_layer_size = hidden_layer_size
-        self.lstm = nn.LSTM(input_size, hidden_layer_size)
-        self.linear = nn.Linear(hidden_layer_size, output_size)
-        self.device = torch.device('cuda:0')
-        self.hidden_cell = (torch.zeros(1,1,self.hidden_layer_size).to(self.device),
-                            torch.zeros(1,1,self.hidden_layer_size).to(self.device))
+        self.in_features = 4
+        self.num_frames  = num_frames
+        self.num_layers = 5
+        self.out_features = 2
+        self.hidden_layer_size = 100
+        self.max_frames = 99
+        self.window = 10
+        self.fcout1 = in_features//2
+        self.fcout2 = self.fcout1//2
+        self.fcout3 = self.fcout2//2
+        self.prediction_linear_input = self.window * self.hidden_layer_size
+        self.linear_input = self.max_frames * self.hidden_layer_size
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.loss = torch.nn.MSELoss().to(self.device)
-        self.optimize
+        self.evaluate = False
 
+        if self.num_frames < self.max_frames:
+            self.predicpredictnextframelstm_view1 = nn.LSTM(
+                input_size= self.in_features,
+                hidden_size=self.hidden_layer_size, 
+                num_layers=self.num_layers
+            )
+            self.predicpredictnextframelinear_view1 = nn.Linear(self.prediction_linear_input, self.in_features)
 
-    def forward(self, sample):
-        # sample is the position of the ball like frame number, x, y , radius of ball.
-        # that is why the the input_size of lstm is 4
-        # now just working with view1. view2 ignored, but will consider next
-        total_loss = torch.tensor(0).to(self.device)
-        num_frames_to_predict = len(sample) - self.num_frames
-        available_view = sample[:self.num_frames]   #just use the 30 frames to predict the remaining frames
-        next_frame_number = self.num_frames
-        for i in range(num_frames_to_predict):
-            target = sample[next_frame_number].unsqueeze(dim=0)
-            self.hidden_cell = (torch.zeros(1, 1, self.hidden_layer_size).to(self.device),
-                        torch.zeros(1, 1, self.hidden_layer_size).to(self.device))
-            lstm_out, self.hidden_cell = self.lstm(available_view.view(len(available_view) ,1, -1), self.hidden_cell)
-            predictions = self.linear(lstm_out.view(len(available_view), -1))
-            frame_predicted = predictions[-1].unsqueeze(dim=0)
-            available_view = torch.cat((available_view, frame_predicted))
-            total_loss = total_loss + self.loss(frame_predicted, target)  #adding the predicted frame to the available frames and in next loop it will be used to predict again the next frame
-            next_frame_number += 1
-        total_loss.backward()
-        # now optimizer can be used optimizer.step()
-        # now as we have all the information needed till end of the frame
-        # we can use a classifier to tell if hit or miss
+            self.predicpredictnextframelstm_view2 = nn.LSTM(
+                input_size= self.in_features,
+                hidden_size=self.hidden_layer_size, 
+                num_layers=self.num_layers
+            )
+            self.predicpredictnextframelinear_view2 = nn.Linear(self.prediction_linear_input, self.in_features)
+
+    def forward(self, input):
+        input = input.squeeze()
+        available_frames_view1 = input[0][:self.num_frames].unsqueeze(dim=0)
+        available_frames_view2 = input[1][:self.num_frames].unsqueeze(dim=0)
+        if self.num_frames < self.max_frames:
+            hidden = self.init_hidden(self.window)
+            hidden_view1 = self.__repackage_hidden(hidden)
+            hidden_view2 = self.__repackage_hidden(hidden)
+            framestopredict = self.max_frames - self.num_frames
+            for topredictframe in range(self.num_frames, self.max_frames):
+                target_view1 = input[0][topredictframe].unsqueeze(dim=0)
+                target_view2 = input[1][topredictframe].unsqueeze(dim=0)
+                windowed_frames_view1 = self.getinputwindowed(available_frames_view1, topredictframe, self.window)
+                windowed_frames_view2 = self.getinputwindowed(available_frames_view2, topredictframe, self.window)
+                predictinput_view1, hidden_view1 = self.predicpredictnextframelstm_view1(windowed_frames_view1, hidden_view1)
+                predictinput_view2, hidden_view2 = self.predicpredictnextframelstm_view1(windowed_frames_view2, hidden_view2)
+                predictinput_view1 = predictinput_view1.view(1, -1)
+                predictinput_view2 = predictinput_view2.view(1, -1)
+                predictinput_view1 = self.predicpredictnextframelinear_view1(predictinput_view1)
+                predictinput_view2 = self.predicpredictnextframelinear_view2(predictinput_view2)
+                if self.training == True:
+                    l_view1 = self.loss(predictinput_view1, target_view1)
+                    l_view2 = self.loss(predictinput_view2, target_view2)
+                    loss = l_view1 + l_view2
+                    l_view1.backward(retain_graph=True)
+                    l_view2.backward(retain_graph=True)
+                available_frames_view1 = torch.cat([available_frames_view1.squeeze(), predictinput_view1]).unsqueeze(dim=0)
+                available_frames_view2 = torch.cat([available_frames_view2.squeeze(), predictinput_view2]).unsqueeze(dim=0)
+        #a = available_frames_view1.squeeze().detach().cpu().numpy()
+        #numpy.savetxt("foo.csv", a, delimiter=",")
+        output1, (h_n, h_c)  = self.lstm1(available_frames_view1)
+        output1 = self.linear1(output1.view(1, -1))
+        output2, (h_n, h_c)  = self.lstm2(available_frames_view2)
+        output2= self.linear2(output2.view(1, -1))
+        output = torch.cat([output1, output2]).unsqueeze(dim=0)
+        output = self.avg(output).squeeze().unsqueeze(dim=0)
+        return output
+
+    def __repackage_hidden(self, h):
+        """Wraps hidden states in new Tensors, to detach them from their history."""
+        if isinstance(h, torch.Tensor):
+            return h.detach()
+        else:
+            return tuple(self.__repackage_hidden(v) for v in h)
+
+    def __resize(self, input):
+        output = input.unsqueeze(dim=0)
+        return output
+
+    def init_hidden(self, bsz):
+        weight = next(self.parameters())
+        return (weight.new_zeros(self.num_layers, bsz, self.hidden_layer_size).to(self.device),
+                weight.new_zeros(self.num_layers, bsz, self.hidden_layer_size).to(self.device))
+    
+    def getinputwindowed(self, input, topredictframe, window):
+        startingframe = topredictframe - window
+        return input.squeeze()[startingframe:startingframe+window].unsqueeze(dim=0)

@@ -64,7 +64,8 @@ class Basketball(torch.utils.data.Dataset):
                 num_frame_cache_available = len(item[0][0]) if self.optical_flow == True else len(item[0])
             if num_frame_cache_available < self.num_frames:
                 raise NotImplementedError("Don't Support running {} frames after running {} frame.".format(self.num_frames, num_frame_cache_available))
-            view = torch.stack([item[0][0][:self.num_frames], item[0][1][:self.num_frames]]) if self.optical_flow == True else item[0][:self.num_frames]
+            view = torch.stack([item[0][0][:self.num_frames], item[0][1][:self.num_frames]]) if (self.optical_flow == True) else item[0][:self.num_frames]
+            #view = torch.stack([item[0][0][:self.num_frames], item[0][1][:self.num_frames]]) if (self.optical_flow == True or self.trajectory == True) else item[0][:self.num_frames]
             return view, item[1]
         view = None
         view = self.__get_all_views(self.curr_sample)
@@ -75,6 +76,7 @@ class Basketball(torch.utils.data.Dataset):
             optical_flow = self.__get_all_views(curr_sample_optical_flow)
             view = torch.stack([view, optical_flow])
         cache.setcache(self.curr_sample, view, self.curr_sample)
+
         return view, self.curr_sample
 
     def __get_all_views(self, path):

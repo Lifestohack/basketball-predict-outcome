@@ -17,6 +17,7 @@ from networks.CNN3D import CNN3D
 from networks.CNN2DLTSM import CNN2DLTSM
 from networks.TwoStream import TwoStream
 from function import Traintest
+from function import TraintestPOSITIONLSTM
 from networks.POSITIONFFNN import POSITIONFFNN
 from networks.POSITIONLSTM import POSITIONLSTM
 import cache
@@ -196,12 +197,13 @@ class Basketball():
         return obj, network
 
     def __POSITIONLSTM(self):
-        loss = torch.nn.MSELoss().to(self.device)
-        network = POSITIONLSTM(self.num_frames)  
+        loss = torch.nn.CrossEntropyLoss().to(self.device)
+        in_features = self.num_frames
+        network = POSITIONLSTM(self.num_frames, in_features)  
         if torch.cuda.device_count() > 1:   # will use multiple gpu if available
             network = nn.DataParallel(network)
         network.to(self.device)
-        optimizer = torch.optim.Adam(network.parameters(), lr=0.001, weight_decay=0.01)
+        optimizer = torch.optim.Adam(network.parameters(), lr=self.lr, weight_decay=0.01)
         obj = Traintest(self.module, self.device, network, loss, optimizer)
         return obj, network
 

@@ -60,9 +60,9 @@ if network == Networks.FFNN:
 # For this please use balldetection.m file. 
 # Open the file in matlab and give the path to the original dataset. 
 # The output of the matlab file, please copy it to the dataset folder of this project under "trajectory" folder
-trajectory = True if network==Networks.POSITIONFFNN else False
-if trajectory == True and network != Networks.POSITIONFFNN:
-    raise ValueError("{} doesnot support position values. Use {} instead.".format(network, Networks.POSITIONFFNN))
+trajectory = True if (network==Networks.POSITIONFFNN or  network==Networks.POSITIONLSTM) else False
+if trajectory == True and (network != Networks.POSITIONFFNN and network != Networks.POSITIONLSTM):
+    raise ValueError("{} doesnot support position values. Use {} or {} instead.".format(network, Networks.POSITIONFFNN, Networks.POSITIONLSTM))
 dp = Basketball.Basketball(width=width, height=height, split=split, trajectory=trajectory)
 
 # **************************</Variables>******************************
@@ -93,17 +93,17 @@ elif network == Networks.CNN2DLSTM:
 elif network == Networks.TWOSTREAM:
     lr=0.0001
 elif network == Networks.POSITIONFFNN:
-    lr=0.00001
-elif network == Networks.POSITIONLSTM:
     lr=0.0001
+elif network == Networks.POSITIONLSTM:
+    lr=0.00001
 
 # if after every training, testing should be done then use
 testeverytrain=True
 
 # Start training or validating
 dp.run(max_frames, network, testeverytrain=testeverytrain, EPOCHS=Epocs, lr=lr, background=background)
-dp.run(55, network, testeverytrain=testeverytrain, EPOCHS=Epocs, lr=lr, background=background)
-dp.run(30, network, testeverytrain=testeverytrain, EPOCHS=Epocs, lr=lr, background=background)
+#dp.run(55, network, testeverytrain=testeverytrain, EPOCHS=Epocs, lr=lr, background=background)
+#dp.run(30, network, testeverytrain=testeverytrain, EPOCHS=Epocs, lr=lr, background=background)
 
 # if only validation is required using pretrained network then
 #split = 'validation'
