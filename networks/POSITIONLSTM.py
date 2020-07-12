@@ -13,10 +13,8 @@ class POSITIONLSTM(nn.Module):
         self.out_features = 2
         self.hidden_layer_size = 100
         self.max_frames = 99
-        self.window = 10
-        self.fcout1 = in_features//2
-        self.fcout2 = self.fcout1//2
-        self.fcout3 = self.fcout2//2
+        self.window = 12
+
         self.prediction_linear_input = self.window * self.hidden_layer_size
         self.linear_input = 2 * self.max_frames * self.in_features
         self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -49,20 +47,11 @@ class POSITIONLSTM(nn.Module):
                 hidden_size=self.hidden_layer_size, 
                 num_layers=self.num_layers
         )
-        # self.linear1 = nn.Linear(self.linear_input, self.in_features)
-        # self.lstm2 = nn.LSTM(
-        #         input_size= self.in_features,
-        #         hidden_size=self.hidden_layer_size, 
-        #         num_layers=self.num_layers
-        # )
-        # self.linear2 = nn.Linear(self.linear_input, self.in_features)
-
-        # self.avg = nn.AvgPool2d((2, 1), stride=1)
         self.fcout1 = self.linear_input//2
         self.fcout2 = self.fcout1//2
         self.fcout3 = self.fcout2//2
         self.bias = True
-        self.drop_p = 0.1
+        self.drop_p = 0.01
         self.fc1  = nn.Sequential(
             nn.Linear(self.linear_input, self.linear_input, self.bias),
             nn.ReLU(inplace=True)
@@ -108,15 +97,6 @@ class POSITIONLSTM(nn.Module):
                 available_frames_view1 = torch.cat([available_frames_view1.squeeze(), predictinput_view1]).unsqueeze(dim=0)
                 available_frames_view2 = torch.cat([available_frames_view2.squeeze(), predictinput_view2]).unsqueeze(dim=0)
             input  = torch.cat([available_frames_view1, available_frames_view2])
-        #a = available_frames_view1.squeeze().detach().cpu().numpy()
-        #numpy.savetxt("foo.csv", a, delimiter=",")
-        # output1, (h_n, h_c)  = self.lstm1(available_frames_view1)
-        # output1 = self.linear1(output1.view(1, -1))
-        # output2, (h_n, h_c)  = self.lstm2(available_frames_view2)
-        # output2= self.linear2(output2.view(1, -1))
-        # output = torch.cat([output1, output2]).unsqueeze(dim=0)
-        # output = self.avg(output).squeeze().unsqueeze(dim=0)
-        #input = self.__resize(input)
         input = self.fc1(input.view(1,-1))
         output = self.fc2(input)
         output = self.fc3(output)
