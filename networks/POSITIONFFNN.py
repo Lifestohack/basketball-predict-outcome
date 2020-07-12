@@ -9,27 +9,27 @@ class POSITIONFFNN(nn.Module):
         self.num_frames = num_frames
         self.in_features = 2 * self.num_frames * 4
         self.out_features = out_features
-        self.drop_p = 0.2
-        self.bias = True
+        self.drop_p = 0.
+        self.bias = False
         self.fcout1 = self.in_features//2
         self.fcout2 = self.fcout1//2
         self.fcout3 = self.fcout2//2
 
         self.fc1  = nn.Sequential(
-            nn.Linear(self.in_features, self.in_features, self.bias),
+            nn.Linear(self.in_features, self.fcout1, self.bias),
             nn.ReLU(inplace=True)
         )
         self.fc2  = nn.Sequential(
-            nn.Linear(self.in_features, self.fcout1, self.bias),
-            nn.ReLU(inplace=True),
-            nn.Dropout(self.drop_p)
-        )
-        self.fc3  = nn.Sequential(
             nn.Linear(self.fcout1, self.fcout2, self.bias),
             nn.ReLU(inplace=True),
             nn.Dropout(self.drop_p)
         )
-        self.fc4  = nn.Linear(self.fcout2, self.out_features, self.bias)
+        self.fc3  = nn.Sequential(
+            nn.Linear(self.fcout2, self.fcout3, self.bias),
+            nn.ReLU(inplace=True),
+            nn.Dropout(self.drop_p)
+        )
+        self.fc4  = nn.Linear(self.fcout3, self.out_features, self.bias)
 
 
     def forward(self, input):
