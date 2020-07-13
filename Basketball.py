@@ -264,8 +264,8 @@ class Basketball():
             elif self.background == False:
                 backgroundpath = "no_background"
         save_path_results = os.path.join(save_path, backgroundpath, module.name, str(self.num_frames), save_path_results)
-        serialize.save_results(results, modelclass=str(EPOCHS) + "_" + str(self.lr) + "_" + module.name, path=save_path_results)
-        print("Done")
+        saved_at = serialize.save_results(results, modelclass=str(EPOCHS) + "_" + str(self.lr) + "_" + module.name, path=save_path_results)
+        print("Done!!! Saved at: ", saved_at)
 
     def __runvalidation(self, module, EPOCHS, pretrained, pretrainedpath):
         print("Network: {} \nTotal Epocs: {} \nFrames: {}\nLearning rate: {}\nData: {}".format(module.name, EPOCHS, self.num_frames,self.lr, self.data))
@@ -297,13 +297,13 @@ class Basketball():
                 backgroundpath = "no_background"
         save_path_prediction_result = os.path.join(save_path, backgroundpath, module.name, str(self.num_frames), save_path_prediction)
         validationpath = serialize.exportcsv(prediction, modelclass=str(pre) + "_"  + str(EPOCHS)+  "_" + str(self.lr) + "_" + module.name, path=save_path_prediction_result)
-        print("Done")
+        print("Done!!! Saved at: ", validationpath)
         if not pretrained:
             print("Saving network...")
             save_path_network = self.config['trained_network']
             save_path_trained_network = os.path.join(save_path, backgroundpath, module.name, str(self.num_frames), save_path_network)
-            module_saved_path = serialize.save_module(model=network, modelclass=str(pre) + "_"  + str(EPOCHS)+ "_" + str(self.lr) + "_" + module.name, path=save_path_trained_network)
-            print("Done")
+            saved_at = module_saved_path = serialize.save_module(model=network, modelclass=str(pre) + "_"  + str(EPOCHS)+ "_" + str(self.lr) + "_" + module.name, path=save_path_trained_network)
+            print("Done!!! Saved at: ", saved_at)
 
     def destroycache(self):
         self.trainset_loader.dataset.destroycache()

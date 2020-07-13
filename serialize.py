@@ -28,6 +28,7 @@ def save_results(results, modelclass, path):
     with open(save_path, 'w', newline='') as f:
         writer = csv.writer(f)
         writer.writerows(results)
+    return save_path
 
 def load_results(path):
     results = []

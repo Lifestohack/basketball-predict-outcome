@@ -54,9 +54,14 @@ if network == Networks.FFNN:
         height = height_ffnn
 
 # Create first the Basketball object
+
+# If using FFNN, CNN3D, CNN2DLSTM, TWOSTREAM
+# Images will be used. First of original dataset should be preprocessed.
+# Use DataMultiProcess to preprocess the dataset
 #dp = Basketball.Basketball(width=width, height=height, split=split)
 
-# Using co-ordinate of basketball instead of images.
+# If using POSITIONLSTM and POSITIONFFNN 
+# Co-ordinate of basketball is used instead of images.
 # For this please use balldetection.m file. 
 # Open the file in matlab and give the path to the original dataset. 
 # The output of the matlab file, please copy it to the dataset folder of this project under "trajectory" folder
@@ -102,9 +107,9 @@ testeverytrain=True
 
 pretrained = True
 # Start training or validating
-#dp.run(max_frames, network, testeverytrain=testeverytrain, EPOCHS=Epocs, lr=lr, background=background)
+dp.run(max_frames, network, testeverytrain=testeverytrain, EPOCHS=Epocs, lr=lr, background=background,  pretrained=pretrained)
 dp.run(55, network, testeverytrain=testeverytrain, EPOCHS=Epocs, lr=lr, background=background, pretrained=pretrained)
-#dp.run(30, network, testeverytrain=testeverytrain, EPOCHS=Epocs, lr=lr, background=background)
+dp.run(30, network, testeverytrain=testeverytrain, EPOCHS=Epocs, lr=lr, background=background,  pretrained=pretrained)
 
 # if only validation is required using pretrained network then use pretrained=True and provide pretrainedpath. 
 # If pretrainedpath is not provided then the latest trained network will be used.
