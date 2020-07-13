@@ -50,20 +50,21 @@ class Basketball():
         self.config = config['DEFAULT']
         #a = self.config['output']
 
-    def run(self, num_frames, module='FFNN', testeverytrain=True, EPOCHS=1, lr=0.01, background=True, pretrained=False, pretrainedpath=None):
+    def run(self, num_frames, module=Networks.FFNN, testeverytrain=True, EPOCHS=1, lr=0.01, background=True, pretrained=False, pretrainedpath=None):
         if not num_frames:
             raise RuntimeError('Please pass parameter.')
         self.pretrained = pretrained
         self.pretrainedpath = pretrainedpath
-        if pretrained:
-            if pretrainedpath is None:
-                raise RuntimeError("No path provided for pre trained network.")
         self.data = self.config['dataset']
         self.opticalpath = self.data
         self.background = background
         self.num_frames = num_frames
         self.lr = lr
         self.module = module
+        if self.pretrained == True and self.pretrainedpath == None:
+            self.pretrainedpath = self.getPretrainednetworkPath(self.module, self.trajectory, self.num_frames, self.background)
+            if self.pretrainedpath == None:
+                raise RuntimeError("No pretrained network found.")
         folder = "128x128"
         if module == Networks.FFNN:
             folder = "48x48"
@@ -275,6 +276,7 @@ class Basketball():
         if pretrained:
             network = serialize.load_module(network, pretrainedpath)
             prediction = train_validate.predict(self.validation_loader)
+            pre = validation.validate(prediction)
         else:
             total_train = len(self.trainset_loader.dataset)
             for epoch in range(1, EPOCHS+1):
@@ -308,3 +310,22 @@ class Basketball():
         if self.split == 'training':
             self.testset_loader.dataset.destroycache()
         self.validation_loader.dataset.destroycache()
+    
+    def getPretrainednetworkPath(self, module, trajectory, num_frames, background):
+        outputpath = self.config['output']
+        files = []
+        backgroundpath = "trajectory"
+        if trajectory == False:
+            if background == True:
+                backgroundpath = "background"
+            elif background == False:
+                backgroundpath = "no_background"
+        for r, d, f in os.walk(outputpath):
+            for file in f:
+                path = os.path.join(r, file)
+                pathsplit = path.split(os.sep)
+                if backgroundpath in pathsplit and str(num_frames) in pathsplit and module.name in pathsplit and "network" in pathsplit:
+                    files.append(path)
+        if len(files) > 1:
+            print("More than one network found. Using the most recent trained network.")
+        return max(files, key=os.path.getctime)

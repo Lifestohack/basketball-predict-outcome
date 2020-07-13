@@ -40,13 +40,13 @@ height_ffnn=48
 
 # [training and test] or validating??
 # possible values = validation, training
-split = 'training'
+split = 'validation'
 print("**************************** {} STARTED ******************************************".format(split.upper()))
 # the network you want to use
 # Options are 
 # FFNN, CNN3D, CNN2DLSTM, TWOSTREAM uses images 
 # POSITIONFFNN, POSITIONLSTM uses CSV file
-network = Networks.POSITIONFFNN
+network = Networks.POSITIONLSTM
 
 if network == Networks.FFNN:
     if width_ffnn is not None and height_ffnn is not None:
@@ -100,12 +100,14 @@ elif network == Networks.POSITIONLSTM:
 # if after every training, testing should be done then use
 testeverytrain=True
 
+pretrained = True
 # Start training or validating
-dp.run(max_frames, network, testeverytrain=testeverytrain, EPOCHS=Epocs, lr=lr, background=background)
-#dp.run(55, network, testeverytrain=testeverytrain, EPOCHS=Epocs, lr=lr, background=background)
+#dp.run(max_frames, network, testeverytrain=testeverytrain, EPOCHS=Epocs, lr=lr, background=background)
+dp.run(55, network, testeverytrain=testeverytrain, EPOCHS=Epocs, lr=lr, background=background, pretrained=pretrained)
 #dp.run(30, network, testeverytrain=testeverytrain, EPOCHS=Epocs, lr=lr, background=background)
 
-# if only validation is required using pretrained network then
+# if only validation is required using pretrained network then use pretrained=True and provide pretrainedpath. 
+# If pretrainedpath is not provided then the latest trained network will be used.
 #split = 'validation'
 #pretrained = True 
 #pretrainedpath = "path/to/pretrainednetwork.pt"

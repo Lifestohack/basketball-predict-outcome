@@ -9,9 +9,9 @@ class POSITIONLSTM(nn.Module):
         super().__init__()
         self.in_features = 4
         self.num_frames  = num_frames
-        self.num_layers = 5
+        self.num_layers = 2
         self.out_features = 2
-        self.hidden_layer_size = 100
+        self.hidden_layer_size = 8
         self.max_frames = 99
         self.window = 12
 
@@ -97,6 +97,9 @@ class POSITIONLSTM(nn.Module):
                 available_frames_view1 = torch.cat([available_frames_view1.squeeze(), predictinput_view1]).unsqueeze(dim=0)
                 available_frames_view2 = torch.cat([available_frames_view2.squeeze(), predictinput_view2]).unsqueeze(dim=0)
             input  = torch.cat([available_frames_view1, available_frames_view2])
+        #a = input.squeeze().detach().cpu().numpy()
+        #numpy.savetxt("foo1.csv", a[0], delimiter=",")
+        #numpy.savetxt("foo2.csv", a[1], delimiter=",")
         input = self.fc1(input.view(1,-1))
         output = self.fc2(input)
         output = self.fc3(output)
