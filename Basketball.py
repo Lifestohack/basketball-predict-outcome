@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import random
 import torch
@@ -302,7 +303,7 @@ class Basketball():
             print("Saving network...")
             save_path_network = self.config['trained_network']
             save_path_trained_network = os.path.join(save_path, backgroundpath, module.name, str(self.num_frames), save_path_network)
-            saved_at = module_saved_path = serialize.save_module(model=network, modelclass=str(pre) + "_"  + str(EPOCHS)+ "_" + str(self.lr) + "_" + module.name, path=save_path_trained_network)
+            saved_at = serialize.save_module(model=network, modelclass=str(pre) + "_"  + str(EPOCHS)+ "_" + str(self.lr) + "_" + module.name, path=save_path_trained_network)
             print("Done!!! Saved at: ", saved_at)
 
     def destroycache(self):
@@ -328,4 +329,6 @@ class Basketball():
                     files.append(path)
         if len(files) > 1:
             print("More than one network found. Using the most recent trained network.")
+        if len(files) < 1:
+            raise RuntimeError("No trained network found.")
         return max(files, key=os.path.getctime)

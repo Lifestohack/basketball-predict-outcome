@@ -1,12 +1,16 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
 from multiprocessing import Pool
 import os
 import cv2 as cv
 import numpy as np
 import denseflow
 from PIL import Image
+import time
 
 class DataMultiProcess():
-    def __init__(self, dataset_path, save_path, create_dense, resize, removebackground):
+    def __init__(self, dataset_path, save_path, create_dense, resize, removebackground=True):
         super().__init__()
         self.dataset_path = dataset_path
         self.save_path = save_path
@@ -155,39 +159,63 @@ class DataMultiProcess():
         # Concatenation of two views starts here #
         combo_video = np.concatenate(views, axis=1)
         # Concatenation of two views starts here #
-        
+        folder = "no_background"
+        if self.removebackground == False:
+            folder = "background"
         # Saving videos starts here #
-        frames = [path.replace(self.dataset_path, self.save_path) for path in frames[0]] # remove data_set path to save_path
-        frames = [path.replace("view1", "") for path in frames] # remove view1
-        frames = [path.replace("view2", "") for path in frames] # remove view2
-        self.save_video(combo_video, frames)
+        #frames = [path.replace(self.dataset_path, self.save_path) for path in frames[0]] # remove data_set path to save_path
+        frames_to_Save = []
+        for path in frames[0]:
+            pathsplit = path.split(os.sep)
+            pathsplit[0] = self.save_path
+            to_remove = pathsplit[-2]
+            pathsplit.remove(to_remove)
+            pathsplit.insert(1, folder)
+            sizepath = str(resize[1]) + "x" + str(resize[1])
+            if self.create_dense == True:
+                sizepath = sizepath + "_optic"
+            pathsplit.insert(2, sizepath)
+            pathsplit.insert(3, "basketball") 
+            frames_to_Save.append(os.path.join(*pathsplit))
+        self.save_video(combo_video, frames_to_Save)
 
-        if "validation" not in frames[0]:
+        if "validation" not in frames_to_Save[0].lower():
             # Rotate starts here #
             ROTATE_90_COUNTERCLOCKWISE = self.rotate_video(combo_video, cv.ROTATE_90_COUNTERCLOCKWISE)
             ROTATE_90_CLOCKWISE = self.rotate_video(combo_video, cv.ROTATE_90_CLOCKWISE)
             ROTATE_180 = self.rotate_video(combo_video, cv.ROTATE_180)
             # Rotate ends here #
-
-            save_rotate_path_90_counterclockwise = self.save_path + '_rotate_90_counterclockwise'
-            save_rotate_path_90_counterclockwise = [path.replace(self.save_path , save_rotate_path_90_counterclockwise) for path in frames] 
-            self.save_video(ROTATE_90_COUNTERCLOCKWISE, save_rotate_path_90_counterclockwise)
-            
-            save_rotate_path_90_clockwise = self.save_path + '_rotate_90_clockwise'
-            save_rotate_path_90_clockwise = [path.replace(self.save_path , save_rotate_path_90_clockwise) for path in frames] 
-            self.save_video(ROTATE_90_CLOCKWISE, save_rotate_path_90_clockwise)
-
-            save_rotate_path_180 = self.save_path + '_rotate_180'
-            save_rotate_path_180 = [path.replace(self.save_path , save_rotate_path_180) for path in frames] 
-            self.save_video(ROTATE_180, save_rotate_path_180)
-            # Saving videos Ends here #
+            frames_to_Save_rotate_90_counterclockwise = []
+            for path in frames_to_Save:
+                pathsplit = path.split(os.sep)
+                pathsplit[3] = pathsplit[3] + "_rotate_90_counterclockwise"
+                frames_to_Save_rotate_90_counterclockwise.append(os.path.join(*pathsplit))
+            self.save_video(ROTATE_90_COUNTERCLOCKWISE, frames_to_Save_rotate_90_counterclockwise)
+            frames_to_Save_rotate_90_clockwise = []
+            for path in frames_to_Save:
+                pathsplit = path.split(os.sep)
+                pathsplit[3] = pathsplit[3] + "_rotate_90_clockwise"
+                frames_to_Save_rotate_90_clockwise.append(os.path.join(*pathsplit))
+            self.save_video(ROTATE_90_CLOCKWISE, frames_to_Save_rotate_90_clockwise)
+            frames_to_Save_rotate_180 = []
+            for path in frames_to_Save:
+                pathsplit = path.split(os.sep)
+                pathsplit[3] = pathsplit[3] + "_rotate_180"
+                frames_to_Save_rotate_180.append(os.path.join(*pathsplit))
+            self.save_video(ROTATE_180, frames_to_Save_rotate_180)
 
     def pipeline_no_background_crop(self, sample):
         views, frames = self.__get_nobackground_cropped_views(sample, False)
+        folder = "matlab"
         # Saving videos starts here #
         for view, frame in zip(views, frames):
-            frame = [path.replace(self.dataset_path, self.save_path) for path in frame] # remove data_set path to save_path
-            self.save_video(view, frame)
+            new_frame_names = []
+            for f in frame:
+                pathsplit = f.split(os.sep)
+                pathsplit.insert(1, folder)
+                new_frame_names.append((os.path.join(*pathsplit)))
+            replaced_new_frame_names = [path.replace(self.dataset_path, self.save_path) for path in new_frame_names] # remove data_set path to save_path
+            self.save_video(view, replaced_new_frame_names)
         # Saving videos Ends here #
 
     def __get_nobackground_cropped_views(self, sample, rotateresize):
@@ -279,19 +307,115 @@ class DataMultiProcess():
 
     def start(self):
         if __name__ == '__main__':
+            start_time = time.time()
             if self.create_dense == True:
                 print("Creating dense dataset...")
             else:
-                print("Creating dataset")
+                print("Creating dataset...")
             # Dataset processing
             views = self.get_sample_folder_number(self.dataset_path)
-            #self.pipeline(views[0])
+            #self.pipeline_no_background_crop(views[0])
             try:
                 # use crop_resize_concatenate for resizing concatenating and saving
                 # use rotate to rotate images
-                pool = Pool()                  # Create a multiprocessing Pool.
-                pool.map(self.pipeline, views)    # process data_inputs iterable with pool
-                pass
+                pool = Pool()                  # Create a multiprocessing Pool. Pass number of cores to use as argument
+                if self.resize == None:
+                    pool.map(self.pipeline_no_background_crop, views)    # process views iterable with pool 
+                else:
+                    pool.map(self.pipeline, views)    # process views iterable with pool
             finally:                            # To make sure processes are closed in the end, even if errors happen
                 pool.close()
                 pool.join()
+            end_time = time.time()
+            print("Total time required: {} seconds".format(end_time - start_time))
+
+# *************<IMPORTANT>*********************
+# When running this file make sure
+# only one call to DataMultiProcess is made.
+# Comment out other call to DataMultiProcess
+
+# Process-based parallelism
+# This file will use all the logical cores on 
+# your computer. If you don't want that then 
+# pass number of cores you want it to use when
+# calling the Pool(). Using all cores will make 
+# dataprocessing faster.
+
+# Original data path and save path after preprocessing
+original_data_path = "orgdata"
+save_path = "dataset"
+if not os.path.exists(original_data_path):
+    raise FileNotFoundError(original_data_path + " not found.")
+
+# Make sure the original dataset has path structure as follows:
+# Case sensative and training and validation folder are available
+
+# -originaldataset
+#       - training
+#       - validation
+
+# At the end of data processing following path structure will be formed.
+# - dataset
+#       - background
+#           - 48x48
+#               - basketball
+#                   - training
+#                   - validation
+#               - basketball_rotate_90_clockwise
+#                   - training
+#               - basketball_rotate_90_counterclockwise
+#                   - training
+#               - basketball_rotate_180
+#                   - training
+#           - 128x128
+#           - 128x128_optic
+#
+# there will also be folder with same structure with no_background
+# - dataset
+#       - no_background
+#           ...
+# *************</IMPORTANT>*********************
+
+
+# Create dataset for FFNN.
+# Each images will be resized
+# After resize two views will be concatenated
+# Resulting concatenated images size will be of size 48x48.
+# deactive dense creation
+# Two dataset will be created 
+# With background and without background
+
+#create_dense = False
+#resize = [24, 48]
+#DataMultiProcess(original_data_path, save_path, create_dense, resize, removebackground=True).start()
+#DataMultiProcess(original_data_path, save_path, create_dense, resize, removebackground=False).start()
+
+
+# Create dataset for CNN3D, CNN2DLSTM, TWOSTREAM
+# Two dataset will be created 
+# With background and without background
+
+#create_dense = False
+#resize = [64, 128]
+#DataMultiProcess(original_data_path, save_path, create_dense, resize, removebackground=True).start()
+#DataMultiProcess(original_data_path, save_path, create_dense, resize, removebackground=False).start()
+
+
+# Create dense dataset for TWOSTREAM
+# active dense creation
+# Two dataset will be created 
+# Dense flow images will be created after removing background
+# Dense flow images will be created without removing background
+
+#create_dense = True
+#resize = [64, 128]
+#DataMultiProcess(original_data_path, save_path, create_dense, resize, removebackground=True).start()
+#DataMultiProcess(original_data_path, save_path, create_dense, resize, removebackground=False).start()
+
+
+# Create dataset for matlab input
+# This dataset will be used to extract the position and radius of the basketball.
+
+#create_dense = False
+#resize = None
+#DataMultiProcess(original_data_path, save_path, create_dense, resize, removebackground=True).start()

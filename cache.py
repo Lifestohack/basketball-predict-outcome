@@ -1,7 +1,7 @@
-#!/usr/bin/python
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 from psutil import virtual_memory
-
 
 # Python garbage collection doesnot allow explicit memory free up.
 

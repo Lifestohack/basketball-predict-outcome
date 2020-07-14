@@ -1,7 +1,9 @@
 #!/usr/bin/env python
-from enum import Enum
+# -*- coding: utf-8 -*-
 
+from enum import Enum
 import os
+
 class Networks(Enum):
     FFNN = 1
     CNN3D = 2
