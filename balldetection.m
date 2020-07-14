@@ -1,28 +1,7 @@
 clear
-readpath = 'dataset\data\cropped_samples';
-savepath = 'dataset\data\trajectory';
+readpath = 'dataset\matlab';
+savepath = 'dataset\trajectory';
 start(readpath, savepath)
-
-% path = 'dataset\data\sampless\training\hit\0\view1';
-% rootdir = dir(fullfile(path, "**/*.png"));
-% pos = [];
-% for n = 1:length(rootdir)
-%     path = fullfile(rootdir(n).folder, rootdir(n).name);
-%     [center,radius] = getcirclecoordinates(path)
-%     if ~isempty(center) 
-%         pos = [pos;[n, center, radius]];
-%     end
-% end
-% 
-% pos = process(pos);
-% x = pos(:, 2);
-% y = pos(:, 3);
-% 
-% for i = 1:length(x)
-%     hold on;
-%     plot(x(i), y(i), 'ro', 'MarkerSize', 30);
-% end
-% csvwrite("C:\Users\lumi\basketball\diwas.csv",position);
 
 function start(readpath, savepath)
     rootdir = dir(fullfile(readpath));
@@ -136,8 +115,7 @@ function [centersBright,radiiBright] = getcirclecoordinates(path)
                 centersBright(i,:) = [];
             end
         end
-    end
-%         
+    end  
     if length(radiiBright) > 1
         if contains(path, "view1")
             [M,index_radiiBright] = max(radiiBright);
