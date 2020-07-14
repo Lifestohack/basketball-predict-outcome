@@ -12,7 +12,6 @@ import torch.nn as nn
 import serialize
 import configparser
 import os
-import validation
 from networks.FFNN import FFNN
 from networks.CNN3D import CNN3D
 from networks.CNN2DLTSM import CNN2DLTSM
@@ -23,6 +22,7 @@ from networks.POSITIONFFNN import POSITIONFFNN
 from networks.POSITIONLSTM import POSITIONLSTM
 import cache
 from networks.Networks import Networks
+import validation
 
 class Basketball():
     def __init__(self, width=48, height=48, split='training', trajectory=False):
@@ -36,7 +36,6 @@ class Basketball():
         self.out_features = 2                # only 2 classifier hit or miss
         self.lr = 0.001
         self.data = None
-        self.dense_flow = 'optics' 
         self.train_dense_loader = None
         self.test_dense_loader = None       
         self.trajectory = trajectory
@@ -174,7 +173,7 @@ class Basketball():
             self.testset_loader.dataset.setOpticalflow(self.optical, self.opticalpath)
         self.validation_loader.dataset.setOpticalflow(self.optical, self.opticalpath)   
         loss = torch.nn.CrossEntropyLoss().to(self.device)
-        if self.dense_flow is None:
+        if self.opticalpath is None:
             raise RuntimeError('Please provide the path to opticalflow data')
         network = TwoStream(width=self.width, height=self.height, in_channels=self.channel, 
                                             out_features=self.out_features, drop_p=self.drop_p, num_frames=self.num_frames) # the shape of input will be Batch x Channel x Depth x Height x Width
@@ -208,16 +207,6 @@ class Basketball():
         optimizer = torch.optim.Adam(network.parameters(), lr=self.lr, weight_decay=0.01)
         obj = Traintest(self.module, self.device, network, loss, optimizer)
         return obj, network
-
-    def __get_opticalflow_view(self, trainset, testset, opticalpath):
-        # deep copying the obj to new object for the optical flow #
-        trainset_dense = copy.deepcopy(trainset)
-        trainset_dense.path = self.dense_flow
-        trainset_dense.samples = [sample.replace(self.data, self.dense_flow) for sample in trainset_dense.samples]
-        testset_dense = copy.deepcopy(testset)
-        testset_dense.path = opticalpath
-        testset_dense.samples = [sample.replace(self.data, self.dense_flow) for sample in testset_dense.samples]
-        return trainset_dense, testset_dense
 
     def __runtraining(self, module, testeverytrain, EPOCHS):
         print("Network: {} \nTotal Epocs: {} \nFrames: {}\nLearning rate: {}\nData: {}".format(module.name, EPOCHS, self.num_frames,self.lr, self.data))
@@ -288,6 +277,7 @@ class Basketball():
                 prediction = train_validate.predict(self.validation_loader)
                 pre = validation.validate(prediction)
         save_path = self.config['output']
+        print("")
         print("Saving Validation results...")
         save_path_prediction = self.config['predictions']
         backgroundpath = "trajectory"
