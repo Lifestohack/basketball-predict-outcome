@@ -55,6 +55,19 @@ def get_all_results_names():
     result_list = [x for x in result_list if '.directory' not in x]
     return result_list
 
+def get_all_predictions_names():
+    # Config parser
+    config = configparser.ConfigParser()
+    config.read('config.ini')
+    config = config['DEFAULT']
+    save_path = config['output']
+    result_folder = config['results']
+    save_path_results = os.path.join(save_path)
+    result_list = helper.get_all_files(save_path_results)
+    result_list = [x for x in result_list if 'predictions' in x]
+    result_list = [x for x in result_list if '.directory' not in x]
+    return result_list
+
 def __get_timestamp():
     now = datetime.now()
     timestamp = now.strftime("%Y_%m_%d_%H_%M_%S")
