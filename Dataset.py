@@ -25,12 +25,11 @@ from sklearn.preprocessing import MinMaxScaler
 # Hit = 1
 # Miss = 2
 class Basketball(torch.utils.data.Dataset):
-    def __init__(self, path, split='training', trajectory=False):
+    def __init__(self, path, trajectory=False):
         super().__init__()
         #split = training or validation
         #num_frames = 30, 50 or 100                                                                                                                             
         self.path = path
-        self.split = split
         self.length = 0
         self.curr_sample = None
         self.sample_num = 0
@@ -44,7 +43,8 @@ class Basketball(torch.utils.data.Dataset):
         # Config parser
         config = configparser.ConfigParser()
         config.read('config.ini')
-        self.config = config['DEFAULT']     
+        self.config = config['DEFAULT']
+        self.length = len(self.samples)     
 
     def setFrames(self, frames):
         self.num_frames = frames       
@@ -161,20 +161,15 @@ class Basketball(torch.utils.data.Dataset):
         return samples
 
     def train_test_split(self, train_size = 0.8):
-        hitsamples = [x for x in self.samples if 'hit' in x]
-        hitnum = int(train_size * len(hitsamples))
-        hittrainsamples = hitsamples[:hitnum] 
-        hittestamples = hitsamples[hitnum:] 
-        misssamples = [x for x in self.samples if 'miss' in x]
-        missnum = int(train_size * len(misssamples))
-        misstrainsamples = misssamples[:missnum] 
-        misstestamples = misssamples[missnum:] 
-        train = hittrainsamples + misstrainsamples
-        test = hittestamples + misstestamples
+        samples = [x for x in self.samples if "hit" in x or "miss" in x]
+        if len(samples) == 0:
+            return None, None
+        train_sample_num = int(train_size * len(samples))
+        train_sample = samples[:train_sample_num] 
+        test_sample = samples[train_sample_num:] 
         meanstd = normalize.calmeanstd(self.path, self.trajectory)
         trainobj = copy.deepcopy(self)
-        trainobj.samples = train
-        trainobj.samples = [i for i in trainobj.samples]
+        trainobj.samples = train_sample
         random.shuffle(trainobj.samples)
         trainobj.length = len(trainobj.samples)
         mean = [0,0,0]
@@ -188,26 +183,23 @@ class Basketball(torch.utils.data.Dataset):
                 std += np.array((meanstd[item][3], meanstd[item][4], meanstd[item][5]))
         trainobj.mean = mean/trainobj.length
         trainobj.std = std/trainobj.length
-
-        testobj = None
-        if len(test) > 0:  #for validation there is no test
-            testobj = copy.deepcopy(self)
-            testobj.samples = test
-            testobj.samples = [i for i in testobj.samples]
-            random.shuffle(testobj.samples)
-            testobj.length = len(testobj.samples)
-            mean = [0,0,0]
-            std = [0,0,0]
-            for item in testobj.samples:
-                if self.trajectory == True:
-                    mean += np.array((meanstd[item][0]))
-                    std += np.array((meanstd[item][1]))
-                else:
-                    mean += np.array((meanstd[item][0], meanstd[item][1], meanstd[item][2]))
-                    std += np.array((meanstd[item][3], meanstd[item][4], meanstd[item][5]))
-            testobj.mean = mean/testobj.length
-            testobj.std = std/testobj.length
-
+        if train_size == 1:
+            return trainobj, None
+        testobj = copy.deepcopy(self)
+        testobj.samples = test_sample
+        random.shuffle(testobj.samples)
+        testobj.length = len(testobj.samples)
+        mean = [0,0,0]
+        std = [0,0,0]
+        for item in testobj.samples:
+            if self.trajectory == True:
+                mean += np.array((meanstd[item][0]))
+                std += np.array((meanstd[item][1]))
+            else:
+                mean += np.array((meanstd[item][0], meanstd[item][1], meanstd[item][2]))
+                std += np.array((meanstd[item][3], meanstd[item][4], meanstd[item][5]))
+        testobj.mean = mean/testobj.length
+        testobj.std = std/testobj.length
         return trainobj, testobj
 
     def getvalidation(self):

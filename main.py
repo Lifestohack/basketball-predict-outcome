@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+# author: Diwas Bhattarai
+# Email: diwas@bhattarai.de
+# Date: 18.07.2020
 
 import Basketball
 import time
@@ -9,6 +13,7 @@ from networks.Networks import Networks
 # *********** <Dataset Preprocess> ******************
 
 # Use DataMultiProcess to preprocess the dataset
+# Without those data this file doesnot work
 
 # *********** </Dataset Preprocess> ******************
 
@@ -35,7 +40,7 @@ from networks.Networks import Networks
 start_time = time.time()
 
 # **********************<Variables>**********************************
-Epocs = 1
+Epocs = 40
 
 # size of the image that will be feed into the network
 width = 128
@@ -47,14 +52,23 @@ width_ffnn=48
 height_ffnn=48
 
 # [training and test] or validating??
-# possible values = validation, training
-split = 'validation'
+# possible values = training, validation
+split = 'training'
 print("**************************** {} STARTED ******************************************".format(split.upper()))
 # the network you want to use
 # Options are 
 # FFNN, CNN3D, CNN2DLSTM, TWOSTREAM uses images 
 # POSITIONFFNN, POSITIONLSTM uses CSV file
-network = Networks.TWOSTREAM
+network = Networks.POSITIONLSTM
+
+# Two dataset options are available. 
+# One with background and one without background
+# background = False means with no background
+background = False
+
+# if only validation is required using pretrained network then use pretrained=True and provide pretrainedpath. 
+# If pretrainedpath is not provided then the latest trained network will be used.
+pretrained = False
 
 if network == Networks.FFNN:
     if width_ffnn is not None and height_ffnn is not None:
@@ -81,9 +95,6 @@ dp = Basketball.Basketball(width=width, height=height, split=split, trajectory=t
 # **************************</Variables>******************************
 
 #*********************<Train or validate>****************************
-# Two dataset options are available. 
-# One with background and one without background
-background = False
 
 # Maximum number of frames that are available per sample
 max_frames = 100
@@ -113,9 +124,6 @@ elif network == Networks.POSITIONLSTM:
 # if after every training, testing should be done then use
 testeverytrain=True
 
-# if only validation is required using pretrained network then use pretrained=True and provide pretrainedpath. 
-# If pretrainedpath is not provided then the latest trained network will be used.
-pretrained = True
 # Start training or validating
 dp.run(max_frames, network, testeverytrain=testeverytrain, EPOCHS=Epocs, lr=lr, background=background,  pretrained=pretrained)
 dp.run(55, network, testeverytrain=testeverytrain, EPOCHS=Epocs, lr=lr, background=background, pretrained=pretrained)

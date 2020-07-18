@@ -52,22 +52,19 @@ class POSITIONLSTM(nn.Module):
         self.fcout2 = self.fcout1//2
         self.fcout3 = self.fcout2//2
         self.bias = True
-        self.drop_p = 0.01
         self.fc1  = nn.Sequential(
-            nn.Linear(self.linear_input, self.linear_input, self.bias),
+            nn.Linear(self.linear_input, self.fcout1, self.bias),
             nn.ReLU(inplace=True)
         )
         self.fc2  = nn.Sequential(
-            nn.Linear(self.linear_input, self.fcout1, self.bias),
-            nn.ReLU(inplace=True),
-            nn.Dropout(self.drop_p)
+            nn.Linear(self.fcout1, self.fcout2, self.bias),
+            nn.ReLU(inplace=True)
         )
         self.fc3  = nn.Sequential(
-            nn.Linear(self.fcout1, self.fcout2, self.bias),
-            nn.ReLU(inplace=True),
-            nn.Dropout(self.drop_p)
+            nn.Linear(self.fcout2, self.fcout3, self.bias),
+            nn.ReLU(inplace=True)
         )
-        self.fc4  = nn.Linear(self.fcout2, self.out_features, self.bias)
+        self.fc4  = nn.Linear(self.fcout3, self.out_features, self.bias)
 
     def forward(self, input):
         input = input.squeeze()

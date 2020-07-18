@@ -8,7 +8,7 @@ from psutil import virtual_memory
 class Cache(object):
     class __Cache:
         def __init__(self):
-            self.__THRESHOLD = 1  # in GB
+            self.__THRESHOLD = 3  # in GB
             self.__c = {}
 
         def getcache(self, sample):
@@ -42,4 +42,3 @@ class Cache(object):
         return getattr(self.instance, name)
     def __setattr__(self, name):
         return setattr(self.instance, name)
-    

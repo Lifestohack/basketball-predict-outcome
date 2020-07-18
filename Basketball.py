@@ -1,5 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+# author: Diwas Bhattarai
+# Email: diwas@bhattarai.de
 
 import random
 import torch
@@ -86,20 +89,26 @@ class Basketball():
                     self.opticalpath = os.path.join(self.opticalpath, os.path.join("no_background", folder_opticalpath))
         elif self.trajectory == True:
             self.data = os.path.join(self.data, folder)         
-
-        dataset_training = Dataset.Basketball(self.data, split='training', trajectory=self.trajectory)
-        trainset, testset = dataset_training.train_test_split(train_size=0.8)
-        self.trainset_loader = DataLoader(trainset, shuffle=True)
-        if self.split != 'validation':
-            self.testset_loader = DataLoader(testset, shuffle=True)
-        if self.split == 'validation':
-            trainset, _ = dataset_training.train_test_split(train_size=1)
+        dataset_training = Dataset.Basketball(self.data, trajectory=self.trajectory)
+        if self.split == "training":
+            trainset, testset = dataset_training.train_test_split(train_size=0.8)
+            if trainset == None and testset == None:
+                raise FileNotFoundError("No training samples found.")
             self.trainset_loader = DataLoader(trainset, shuffle=True)
+            self.testset_loader = DataLoader(testset, shuffle=True)
+            self.trainset_loader.dataset.setFrames(self.num_frames)
+            self.testset_loader.dataset.setFrames(self.num_frames)
+        elif self.split == 'validation':
+            if not self.pretrained:
+                trainset, _ = dataset_training.train_test_split(train_size=1)
+                if trainset == None:
+                    raise FileNotFoundError("No training samples found.")
+                self.trainset_loader = DataLoader(trainset, shuffle=True)
+                self.trainset_loader.dataset.setFrames(self.num_frames)
+        else:
+            raise ValueError("Invalid argument: {}", self.split)
         validation = dataset_training.getvalidation()
         self.validation_loader = DataLoader(validation, shuffle=True)
-        self.trainset_loader.dataset.setFrames(self.num_frames)
-        if self.split != 'validation':
-            self.testset_loader.dataset.setFrames(self.num_frames)
         self.validation_loader.dataset.setFrames(self.num_frames)
         self.module = module
         if self.split == 'training':
@@ -168,7 +177,8 @@ class Basketball():
 
     def __TWOSTREAM(self):
         self.optical = True
-        self.trainset_loader.dataset.setOpticalflow(self.optical, self.opticalpath)
+        if self.pretrained == False:
+            self.trainset_loader.dataset.setOpticalflow(self.optical, self.opticalpath)
         if self.split == 'training':
             self.testset_loader.dataset.setOpticalflow(self.optical, self.opticalpath)
         self.validation_loader.dataset.setOpticalflow(self.optical, self.opticalpath)   
@@ -261,21 +271,21 @@ class Basketball():
         print("Network: {} \nTotal Epocs: {} \nFrames: {}\nLearning rate: {}\nData: {}".format(module.name, EPOCHS, self.num_frames,self.lr, self.data))
         train_validate, network = self.__module(module)
         if self.optical == True:
-            print("Optical flow: {}".format(self.opticalpath)) 
-        pre = None
+            print( "Optical flow: {}".format(self.opticalpath)) 
         if pretrained:
             network = serialize.load_module(network, pretrainedpath)
             prediction = train_validate.predict(self.validation_loader)
-            pre = validation.validate(prediction)
+            #pre = validation.validate(prediction)
         else:
             total_train = len(self.trainset_loader.dataset)
             for epoch in range(1, EPOCHS+1):
+                print("")
                 print('Epocs: ', epoch)
                 running_train_loss = train_validate.train(self.trainset_loader)
                 print("")
                 print("Training loss: ", running_train_loss/total_train)
                 prediction = train_validate.predict(self.validation_loader)
-                pre = validation.validate(prediction)
+                #pre = validation.validate(prediction)
         save_path = self.config['output']
         print("")
         print("Saving Validation results...")
@@ -287,13 +297,13 @@ class Basketball():
             elif self.background == False:
                 backgroundpath = "no_background"
         save_path_prediction_result = os.path.join(save_path, backgroundpath, module.name, str(self.num_frames), save_path_prediction)
-        validationpath = serialize.exportcsv(prediction, modelclass=str(pre) + "_"  + str(EPOCHS)+  "_" + str(self.lr) + "_" + module.name, path=save_path_prediction_result)
+        validationpath = serialize.exportcsv(prediction, modelclass=str(EPOCHS)+  "_" + str(self.lr) + "_" + module.name, path=save_path_prediction_result)
         print("Done!!! Saved at: ", validationpath)
         if not pretrained:
             print("Saving network...")
             save_path_network = self.config['trained_network']
             save_path_trained_network = os.path.join(save_path, backgroundpath, module.name, str(self.num_frames), save_path_network)
-            saved_at = serialize.save_module(model=network, modelclass=str(pre) + "_"  + str(EPOCHS)+ "_" + str(self.lr) + "_" + module.name, path=save_path_trained_network)
+            saved_at = serialize.save_module(model=network, modelclass=str(EPOCHS)+ "_" + str(self.lr) + "_" + module.name, path=save_path_trained_network)
             print("Done!!! Saved at: ", saved_at)
 
     def destroycache(self):
